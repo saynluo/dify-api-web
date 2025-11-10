@@ -1,0 +1,29 @@
+{
+  "name": "ai-smart-assistant",
+  "version": "0.1.0",
+  "description": "现代化AI智能助手 - 蓝白科技风格对话界面",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "nodemon server.js"
+  },
+  "keywords": ["ai", "assistant", "chat", "modern", "tech"],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "express": "^4.18.2",
+    "cors": "^2.8.5",
+    "multer": "2.0.2",
+    "uuid": "^9.0.0",
+    "dotenv": "^16.3.1",
+    "node-fetch": "^2.6.7",
+    "form-data": "^4.0.0",
+    "express-session": "^1.17.3",
+    "bcryptjs": "^2.4.3",
+    "jsonwebtoken": "^9.0.2",
+    "sqlite3": "^5.1.6"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1"
+  }
+}

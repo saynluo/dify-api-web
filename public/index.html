@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🤖 AI 智能助手 - 现代化对话界面</title>
+    <link rel="icon" type="image/png" href="pandalink.png">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="points-styles.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="marked.umd.js"></script>
+    <script src="purify.min.js"></script>
+</head>
+<body>
+    <!-- 登录/注册模态框 -->
+    <div id="authModal" class="modal">
+        <div class="modal-content">
+            <div class="auth-container">
+                <div class="auth-header">
+                    <h2 id="authTitle">登录</h2>
+                    <button id="closeAuth" class="close-btn">&times;</button>
+                </div>
+                
+                <form id="authForm">
+                    <div class="form-group" id="usernameGroup" style="display: none;">
+                        <label for="username">用户名</label>
+                        <input type="text" id="username" name="username">
+                    </div>
+
+                    <div class="form-group" id="emailGroup" style="display: none;">
+                        <label for="email">邮箱</label>
+                        <input type="email" id="email" name="email">
+                    </div>
+
+                    <div class="form-group" id="inviteCodeGroup" style="display: none;">
+                        <label for="inviteCodeReg">邀请码（选填）</label>
+                        <input type="text" id="inviteCodeReg" name="inviteCode" placeholder="输入邀请码可获得额外积分">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="loginUsername">用户名/邮箱</label>
+                        <input type="text" id="loginUsername" name="loginUsername" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="password">密码</label>
+                        <input type="password" id="password" name="password" required>
+                    </div>
+
+                    <button type="submit" id="authSubmit" class="auth-btn">登录</button>
+                </form>
+                
+                <div class="auth-switch">
+                    <span id="authSwitchText">还没有账户？</span>
+                    <a href="#" id="authSwitchLink">注册</a>
+                </div>
+                
+                <div id="authError" class="error-message" style="display: none;"></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="app-container">
+        <!-- 侧边栏 -->
+        <div class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <div class="logo">
+                    <div class="logo-icon"></div>
+                    <span class="logo-text">AI 助手</span>
+                </div>
+                <button id="newChatBtn" class="new-chat-btn">
+                    <span class="icon">+</span>
+                    <span class="text">新建对话</span>
+                </button>
+            </div>
+            
+            <div class="conversations-list" id="conversationsList">
+                <div class="loading-conversations">加载对话中...</div>
+            </div>
+            
+            <div class="sidebar-footer">
+                <!-- 积分显示 -->
+                <div class="points-display" id="pointsDisplay" style="display: none;">
+                    <div class="points-info">
+                        <span class="points-icon">💎</span>
+                        <span class="points-value" id="pointsValue">0</span>
+                        <span class="points-label">积分</span>
+                    </div>
+                    <button id="pointsManageBtn" class="points-manage-btn" title="积分管理">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                            <circle cx="12" cy="12" r="10"/>
+                            <line x1="12" y1="16" x2="12" y2="12"/>
+                            <line x1="12" y1="8" x2="12.01" y2="8"/>
+                        </svg>
+                    </button>
+                </div>
+
+                <div class="user-info" id="userInfo">
+                    <div class="user-avatar"></div>
+                    <div class="user-details">
+                        <div class="username" id="currentUsername">未登录</div>
+                        <div class="user-actions">
+                            <button id="loginBtn" class="action-btn">登录</button>
+                            <button id="logoutBtn" class="action-btn" style="display: none;">退出</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 主内容区 -->
+        <div class="main-content">
+            <!-- 顶部栏 -->
+            <div class="header">
+                <button id="sidebarToggle" class="sidebar-toggle">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                </button>
+                <div class="conversation-title" id="conversationTitle">新的对话</div>
+                <div class="header-actions">
+                    <button id="clearChat" class="header-btn" title="清空对话">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                            <path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6h14zM10 11v6M14 11v6"/>
+                        </svg>
+                    </button>
+                    <button id="exportChat" class="header-btn" title="导出对话">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+            
+            <!-- 消息区域 -->
+            <div class="messages-container" id="messagesContainer">
+                <div class="welcome-screen" id="welcomeScreen">
+                    <div class="welcome-content">
+                        <div class="welcome-icon">
+                            <img src="logo.png" alt="AI助手" class="welcome-logo">
+                        </div>
+                        <h1>欢迎使用 AI 智能助手</h1>
+                        <p>我是您的专属智能助手，采用现代化蓝白科技风格设计，为您提供流畅、智能的对话体验。</p>
+                        <div class="suggested-prompts">
+                            <button class="prompt-btn" data-prompt="你好，请介绍一下自己">👋 自我介绍</button>
+                            <button class="prompt-btn" data-prompt="请帮我写一篇关于人工智能的文章">✨ 创作助手</button>
+                            <button class="prompt-btn" data-prompt="解释一下什么是机器学习">🧠 学习助手</button>
+                            <button class="prompt-btn" data-prompt="帮我分析这个问题">💡 分析助手</button>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 动态内容将在这里渲染 -->
+                <!-- 开场白容器会通过JavaScript动态创建 -->
+                <!-- 建议问题容器会通过JavaScript动态创建 -->
+                <!-- 对话消息会通过JavaScript动态创建 -->
+                
+            </div>
+            
+            <!-- 输入区域 -->
+            <div class="input-area">
+                <!-- 积分显示在输入框右上角 -->
+                <div class="input-points-badge" id="inputPointsBadge" style="display: none;">
+                    <span class="badge-icon">💎</span>
+                    <span class="badge-value" id="inputPointsValue">0</span>
+                </div>
+
+                <div class="input-container">
+                    <div class="file-attachments" id="fileAttachments"></div>
+                    <div class="input-wrapper">
+                        <button id="attachBtn" class="attach-btn" title="上传文件">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                                <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66L9.64 16.2a2 2 0 0 1-2.83-2.83l8.49-8.49"/>
+                            </svg>
+                        </button>
+                        <textarea 
+                            id="messageInput" 
+                            placeholder="输入您的消息..." 
+                            rows="1"
+                            maxlength="4000"
+                        ></textarea>
+                        <div class="input-actions">
+                            <button id="voiceBtn" class="voice-btn" title="语音输入">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                                    <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+                                    <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+                                    <line x1="12" y1="19" x2="12" y2="23"/>
+                                    <line x1="8" y1="23" x2="16" y2="23"/>
+                                </svg>
+                            </button>
+                            <button id="sendBtn" class="send-btn" disabled>
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                                    <line x1="22" y1="2" x2="11" y2="13"/>
+                                    <polygon points="22,2 15,22 11,13 2,9"/>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <div class="input-footer">
+                    <div class="char-count">
+                        <span id="charCount">0</span>/4000
+                    </div>
+                    <div class="input-tips">
+                        按 Enter 发送，Shift + Enter 换行
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 文件上传输入 -->
+    <input type="file" id="fileInput" accept="image/*,audio/*" multiple style="display: none;">
+
+    <!-- 积分管理模态窗口 -->
+    <div id="pointsModal" class="modal" style="display: none;">
+        <div class="modal-content points-modal-content">
+            <div class="modal-header">
+                <h2>💎 积分管理中心</h2>
+                <button id="closePointsModal" class="close-btn">&times;</button>
+            </div>
+
+            <div class="points-modal-body">
+                <!-- 积分概览 -->
+                <div class="points-overview">
+                    <div class="points-card">
+                        <div class="points-card-title">当前积分</div>
+                        <div class="points-card-value" id="modalPointsValue">0</div>
+                    </div>
+                    <div class="points-card">
+                        <div class="points-card-title">累计获得</div>
+                        <div class="points-card-value" id="totalEarned">0</div>
+                    </div>
+                    <div class="points-card">
+                        <div class="points-card-title">累计消耗</div>
+                        <div class="points-card-value" id="totalSpent">0</div>
+                    </div>
+                </div>
+
+                <!-- 获取积分方式 -->
+                <div class="points-actions">
+                    <h3>获取积分</h3>
+                    <div class="points-methods">
+                        <div class="method-card">
+                            <div class="method-header">
+                                <div class="method-icon">📅</div>
+                                <div class="method-title">每日签到</div>
+                            </div>
+                            <div class="method-info">
+                                <div class="method-desc">每天签到即可获得1-3积分,连续签到奖励递增哦!</div>
+                                <button id="checkinBtn" class="method-btn">立即签到</button>
+                                <div id="checkinStatus" class="method-status"></div>
+                            </div>
+                        </div>
+
+                        <div class="method-card">
+                            <div class="method-header">
+                                <div class="method-icon">👥</div>
+                                <div class="method-title">邀请好友</div>
+                            </div>
+                            <div class="method-info">
+                                <div class="method-desc">分享您的专属邀请链接,好友注册成功后双方各获得5积分!</div>
+                                <button id="inviteBtn" class="method-btn">获取邀请链接</button>
+                                <div id="inviteCode" class="invite-code-display" style="display: none;">
+                                    <label class="invite-code-label">您的专属邀请链接</label>
+                                    <div class="invite-url-container">
+                                        <input type="text" id="inviteCodeInput" readonly>
+                                        <button id="copyInviteBtn" class="copy-btn">📋 复制</button>
+                                    </div>
+                                    <!-- 分享按钮将通过 JS 动态插入 -->
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 积分记录 -->
+                <div class="points-history">
+                    <h3>积分记录</h3>
+                    <div id="transactionsList" class="transactions-list">
+                        <div class="loading-transactions">加载中...</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 上下文菜单 -->
+    <div id="contextMenu" class="context-menu" style="display: none;">
+        <div class="context-item" data-action="copy">复制</div>
+        <div class="context-item" data-action="edit">编辑</div>
+        <div class="context-item" data-action="delete">删除</div>
+        <div class="context-item" data-action="regenerate">重新生成</div>
+    </div>
+    
+    <!-- 加载动画 -->
+    <div id="loadingOverlay" class="loading-overlay" style="display: none;">
+        <div class="loading-spinner"></div>
+    </div>
+
+    <script src="app.js"></script>
+    <script src="points.js"></script>
+
+    <!-- 调试脚本 -->
+    <script>
+        // 页面加载后进行基本检查
+        window.addEventListener('load', () => {
+            console.log('=== 页面加载调试信息 ===');
+            console.log('页面标题:', document.title);
+            console.log('登录按钮:', document.getElementById('loginBtn'));
+            console.log('认证模态框:', document.getElementById('authModal'));
+            console.log('应用实例:', typeof app !== 'undefined' ? '存在' : '不存在');
+            
+            // 添加调试CSS
+            const style = document.createElement('style');
+            style.textContent = `
+                .debug-highlight {
+                    outline: 2px solid red !important;
+                    background: rgba(255, 0, 0, 0.1) !important;
+                }
+            `;
+            document.head.appendChild(style);
+            
+            // 为登录按钮添加备用点击处理
+            const loginBtn = document.getElementById('loginBtn');
+            if (loginBtn) {
+                loginBtn.addEventListener('click', function(e) {
+                    console.log('备用登录按钮点击处理器触发');
+                    if (typeof app !== 'undefined' && app.showAuthModal) {
+                        console.log('调用应用实例的showAuthModal方法');
+                        app.showAuthModal('login');
+                    } else {
+                        console.error('应用实例或showAuthModal方法不存在');
+                        alert('登录功能初始化失败，请刷新页面重试');
+                    }
+                }, true); // 使用捕获阶段
+            }
+        });
+    </script>
+</body>
+</html>
