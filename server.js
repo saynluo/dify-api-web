@@ -395,9 +395,11 @@ app.post('/api/auth/register', async (req, res) => {
             );
         });
 
-        // 如果使用了邀请码，给邀请人奖励积分
+        // 如果使用了邀请码，给邀请人和新用户都奖励积分
         if (inviterId) {
             const inviteReward = 5;
+
+            // 给邀请者加5积分
             await new Promise((resolve, reject) => {
                 db.run(
                     'UPDATE user_points SET points = points + ?, total_earned = total_earned + ? WHERE user_id = ?',
@@ -409,11 +411,35 @@ app.post('/api/auth/register', async (req, res) => {
                 );
             });
 
-            // 记录邀请人获得积分
+            // 记录邀请者获得积分
             await new Promise((resolve, reject) => {
                 db.run(
                     'INSERT INTO point_transactions (id, user_id, type, amount, reason, related_id) VALUES (?, ?, ?, ?, ?, ?)',
                     [uuidv4(), inviterId, 'earn', inviteReward, '邀请新用户奖励', userId],
+                    function(err) {
+                        if (err) reject(err);
+                        else resolve(this);
+                    }
+                );
+            });
+
+            // 给新用户也加5积分（邀请码奖励）
+            await new Promise((resolve, reject) => {
+                db.run(
+                    'UPDATE user_points SET points = points + ?, total_earned = total_earned + ? WHERE user_id = ?',
+                    [inviteReward, inviteReward, userId],
+                    function(err) {
+                        if (err) reject(err);
+                        else resolve(this);
+                    }
+                );
+            });
+
+            // 记录新用户获得邀请码奖励积分
+            await new Promise((resolve, reject) => {
+                db.run(
+                    'INSERT INTO point_transactions (id, user_id, type, amount, reason, related_id) VALUES (?, ?, ?, ?, ?, ?)',
+                    [uuidv4(), userId, 'earn', inviteReward, '使用邀请码注册奖励', inviterId],
                     function(err) {
                         if (err) reject(err);
                         else resolve(this);
