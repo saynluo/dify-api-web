@@ -65,6 +65,51 @@
         </div>
     </div>
 
+    <!-- 用户设置模态框 -->
+    <div id="settingsModal" class="modal">
+        <div class="modal-content">
+            <div class="auth-container">
+                <div class="auth-header">
+                    <h2>用户设置</h2>
+                    <button id="closeSettings" class="close-btn">&times;</button>
+                </div>
+
+                <!-- 头像设置 -->
+                <div class="settings-section">
+                    <div class="form-group">
+                        <label>头像</label>
+                        <div class="avatar-upload-container">
+                            <div class="avatar-preview" id="avatarPreview">
+                                <img id="avatarPreviewImg" alt="头像预览" style="display: none;">
+                                <div class="avatar-placeholder">点击上传头像</div>
+                            </div>
+                            <input type="file" id="avatarInput" accept="image/*" style="display: none;">
+                            <div class="avatar-upload-buttons">
+                                <button id="uploadAvatarBtn" class="auth-btn" style="padding: 10px 20px; font-size: 14px;">选择图片</button>
+                                <button id="removeAvatarBtn" class="action-btn" style="display: none; margin-left: 10px;">移除头像</button>
+                            </div>
+                            <p class="avatar-hint">支持 JPG, PNG, GIF, WEBP 格式，最大 5MB</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 用户名设置 -->
+                <div class="settings-section">
+                    <form id="usernameForm">
+                        <div class="form-group">
+                            <label for="newUsername">用户名</label>
+                            <input type="text" id="newUsername" name="username" placeholder="输入新用户名" required>
+                            <p class="input-hint">2-50个字符</p>
+                        </div>
+                        <button type="submit" class="auth-btn">保存用户名</button>
+                    </form>
+                </div>
+
+                <div id="settingsError" class="error-message" style="display: none;"></div>
+            </div>
+        </div>
+    </div>
+
     <div class="app-container">
         <!-- 侧边栏 -->
         <div class="sidebar" id="sidebar">
@@ -101,10 +146,11 @@
                 </div>
 
                 <div class="user-info" id="userInfo">
-                    <div class="user-avatar"></div>
+                    <div class="user-avatar" id="sidebarUserAvatar"></div>
                     <div class="user-details">
                         <div class="username" id="currentUsername">未登录</div>
                         <div class="user-actions">
+                            <button id="settingsBtn" class="action-btn" style="display: none;" title="设置">⚙️</button>
                             <button id="loginBtn" class="action-btn">登录</button>
                             <button id="logoutBtn" class="action-btn" style="display: none;">退出</button>
                         </div>
@@ -303,6 +349,7 @@
         <div class="loading-spinner"></div>
     </div>
 
+    <script src="user-settings.js"></script>
     <script src="app.js"></script>
     <script src="points.js"></script>
 

@@ -15,10 +15,15 @@ class ChatApp {
         this.bindEvents();
         this.checkAuth();
         this.setupMarkdownRenderer();
-        
+
         // 获取应用信息（如果需要的话）
         await this.loadAppInfo();
         await this.loadAppParameters();
+
+        // 初始化用户设置功能
+        if (window.UserSettings) {
+            window.UserSettings.init(this);
+        }
     }
     
     async loadConfig() {
@@ -573,6 +578,11 @@ class ChatApp {
             if (username) username.textContent = this.currentUser.username;
             if (avatar) avatar.textContent = this.currentUser.username.charAt(0).toUpperCase();
 
+            // 使用UserSettings更新用户信息显示（包括头像）
+            if (window.UserSettings && window.UserSettings.updateUserInfo) {
+                window.UserSettings.updateUserInfo(this.currentUser);
+            }
+
             // 加载积分信息
             if (window.PointsSystem && window.PointsSystem.load) {
                 window.PointsSystem.load();
@@ -582,6 +592,10 @@ class ChatApp {
             if (logoutBtn) logoutBtn.style.display = 'none';
             if (username) username.textContent = '未登录';
             if (avatar) avatar.textContent = '?';
+
+            // 隐藏设置按钮
+            const settingsBtn = document.getElementById('settingsBtn');
+            if (settingsBtn) settingsBtn.style.display = 'none';
 
             // 隐藏积分显示
             const pointsDisplay = document.getElementById('pointsDisplay');
@@ -1408,8 +1422,17 @@ class ChatApp {
         messageDiv.className = `message ${message.role}`;
         messageDiv.dataset.messageId = message.id;
 
-        const avatar = message.role === 'user' ?
-            (this.currentUser?.username?.charAt(0).toUpperCase() || 'U') : '<img src="logo.png" alt="AI" class="avatar-logo">';
+        // 使用UserSettings获取用户头像HTML
+        let avatar;
+        if (message.role === 'user') {
+            if (window.UserSettings && window.UserSettings.getUserAvatarHTML) {
+                avatar = window.UserSettings.getUserAvatarHTML(this.currentUser);
+            } else {
+                avatar = this.currentUser?.username?.charAt(0).toUpperCase() || 'U';
+            }
+        } else {
+            avatar = '<img src="logo.png" alt="AI" class="avatar-logo">';
+        }
 
         const roleName = message.role === 'user' ? '您' : 'AI助手';
 

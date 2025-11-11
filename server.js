@@ -522,12 +522,130 @@ app.get('/api/auth/me', authMiddleware, (req, res) => {
         if (err) {
             return res.status(500).json({ error: '数据库错误' });
         }
-        
+
         if (!user) {
             return res.status(404).json({ error: '用户不存在' });
         }
-        
+
         res.json(user);
+    });
+});
+
+// 更新用户信息（名称）
+app.put('/api/auth/profile', authMiddleware, (req, res) => {
+    const { username } = req.body;
+
+    if (!username || username.trim().length === 0) {
+        return res.status(400).json({ error: '用户名不能为空' });
+    }
+
+    if (username.length < 2 || username.length > 50) {
+        return res.status(400).json({ error: '用户名长度必须在2-50个字符之间' });
+    }
+
+    // 检查用户名是否已被其他用户使用
+    db.get('SELECT id FROM users WHERE username = ? AND id != ?', [username, req.userId], (err, existingUser) => {
+        if (err) {
+            return res.status(500).json({ error: '数据库错误' });
+        }
+
+        if (existingUser) {
+            return res.status(400).json({ error: '用户名已被使用' });
+        }
+
+        // 更新用户名
+        db.run(
+            'UPDATE users SET username = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+            [username, req.userId],
+            function(err) {
+                if (err) {
+                    return res.status(500).json({ error: '更新失败' });
+                }
+
+                // 返回更新后的用户信息
+                db.get('SELECT id, username, email, avatar FROM users WHERE id = ?', [req.userId], (err, user) => {
+                    if (err) {
+                        return res.status(500).json({ error: '获取用户信息失败' });
+                    }
+                    res.json({ message: '用户名更新成功', user });
+                });
+            }
+        );
+    });
+});
+
+// 上传头像
+const avatarUpload = multer({
+    storage: multer.diskStorage({
+        destination: (req, file, cb) => {
+            const uploadDir = './uploads/avatars';
+            if (!fs.existsSync(uploadDir)) {
+                fs.mkdirSync(uploadDir, { recursive: true });
+            }
+            cb(null, uploadDir);
+        },
+        filename: (req, file, cb) => {
+            const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+            cb(null, 'avatar-' + req.userId + '-' + uniqueSuffix + path.extname(file.originalname));
+        }
+    }),
+    limits: {
+        fileSize: 5 * 1024 * 1024 // 5MB
+    },
+    fileFilter: (req, file, cb) => {
+        // 仅允许图片类型
+        const allowedTypes = /jpeg|jpg|png|gif|webp/;
+        const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
+        const mimetype = allowedTypes.test(file.mimetype);
+
+        if (mimetype && extname) {
+            return cb(null, true);
+        } else {
+            cb(new Error('仅支持图片格式（jpg, png, gif, webp）'));
+        }
+    }
+});
+
+app.post('/api/auth/avatar', authMiddleware, avatarUpload.single('avatar'), (req, res) => {
+    if (!req.file) {
+        return res.status(400).json({ error: '请上传头像文件' });
+    }
+
+    const avatarPath = `/uploads/avatars/${req.file.filename}`;
+
+    // 获取旧头像路径
+    db.get('SELECT avatar FROM users WHERE id = ?', [req.userId], (err, user) => {
+        if (err) {
+            return res.status(500).json({ error: '数据库错误' });
+        }
+
+        // 更新数据库中的头像路径
+        db.run(
+            'UPDATE users SET avatar = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+            [avatarPath, req.userId],
+            function(err) {
+                if (err) {
+                    return res.status(500).json({ error: '更新头像失败' });
+                }
+
+                // 删除旧头像文件（如果存在且不是默认头像）
+                if (user && user.avatar && user.avatar.startsWith('/uploads/avatars/')) {
+                    const oldFilePath = path.join(__dirname, user.avatar);
+                    if (fs.existsSync(oldFilePath)) {
+                        try {
+                            fs.unlinkSync(oldFilePath);
+                        } catch (error) {
+                            console.error('删除旧头像失败:', error);
+                        }
+                    }
+                }
+
+                res.json({
+                    message: '头像上传成功',
+                    avatar: avatarPath
+                });
+            }
+        );
     });
 });
 
