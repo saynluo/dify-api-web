@@ -7,6 +7,16 @@ let currentView = 'dashboard';
 let selectedConversationUser = null;
 let selectedPointsUser = null;
 
+// 辅助函数：获取用户头像HTML
+function getUserAvatarHTML(user, size = 40) {
+    if (user && user.avatar) {
+        return `<img src="${user.avatar}" alt="${user.username}" style="width: ${size}px; height: ${size}px; border-radius: 50%; object-fit: cover; border: 2px solid #e3f2fd;">`;
+    } else if (user && user.username) {
+        return `<div style="width: ${size}px; height: ${size}px; border-radius: 50%; background: linear-gradient(135deg, #0052cc 0%, #1976d2 100%); display: flex; align-items: center; justify-content: center; color: white; font-weight: 700; font-size: ${size * 0.5}px; border: 2px solid #e3f2fd;">${user.username.charAt(0).toUpperCase()}</div>`;
+    }
+    return `<div style="width: ${size}px; height: ${size}px; border-radius: 50%; background: #94a3b8; display: flex; align-items: center; justify-content: center; color: white; font-weight: 700; font-size: ${size * 0.5}px;">?</div>`;
+}
+
 // 页面加载
 document.addEventListener('DOMContentLoaded', () => {
     if (adminToken) {
@@ -203,12 +213,13 @@ function displayUsers(users) {
     const tbody = document.getElementById('usersTableBody');
 
     if (!users || users.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="5" class="empty">暂无用户</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="6" class="empty">暂无用户</td></tr>';
         return;
     }
 
     tbody.innerHTML = users.map(user => `
         <tr>
+            <td>${getUserAvatarHTML(user, 40)}</td>
             <td>${user.username}</td>
             <td>${user.email}</td>
             <td>${user.points || 0}</td>
@@ -580,9 +591,14 @@ function displayConversationUsersList(users) {
 
     container.innerHTML = users.map(user => `
         <div class="user-list-item" onclick="selectConversationUser('${user.id}', '${user.username}', '${user.email}')">
-            <div class="user-name">${user.username}</div>
-            <div class="user-meta">
-                <span>${user.email}</span>
+            <div style="display: flex; align-items: center; gap: 12px;">
+                ${getUserAvatarHTML(user, 36)}
+                <div style="flex: 1;">
+                    <div class="user-name">${user.username}</div>
+                    <div class="user-meta">
+                        <span>${user.email}</span>
+                    </div>
+                </div>
             </div>
         </div>
     `).join('');
@@ -625,11 +641,12 @@ async function selectConversationUser(userId, username, email) {
 function displayConversationDetail(data, username, email) {
     const container = document.getElementById('conversationDetail');
     const conversations = data.conversations;
+    const user = data.user; // 获取完整的用户信息（包含头像）
 
     let html = `
         <div class="detail-header">
             <div class="detail-user-info">
-                <div class="detail-avatar">${username.charAt(0).toUpperCase()}</div>
+                <div class="detail-avatar">${user && user.avatar ? `<img src="${user.avatar}" alt="${username}" style="width: 100%; height: 100%; border-radius: 12px; object-fit: cover;">` : username.charAt(0).toUpperCase()}</div>
                 <div class="detail-user-text">
                     <div class="detail-user-name">${username}</div>
                     <div class="detail-user-email">${email}</div>
@@ -693,10 +710,15 @@ function displayPointsUsersList(users) {
 
     container.innerHTML = users.map(user => `
         <div class="user-list-item" onclick="selectPointsUser('${user.id}', '${user.username}', '${user.email}')">
-            <div class="user-name">${user.username}</div>
-            <div class="user-meta">
-                <span class="meta-badge">💎 ${user.points || 0}</span>
-                <span>${user.email}</span>
+            <div style="display: flex; align-items: center; gap: 12px;">
+                ${getUserAvatarHTML(user, 36)}
+                <div style="flex: 1;">
+                    <div class="user-name">${user.username}</div>
+                    <div class="user-meta">
+                        <span class="meta-badge">💎 ${user.points || 0}</span>
+                        <span>${user.email}</span>
+                    </div>
+                </div>
             </div>
         </div>
     `).join('');
@@ -745,7 +767,7 @@ function displayPointsDetail(data, username, email) {
     let html = `
         <div class="detail-header">
             <div class="detail-user-info">
-                <div class="detail-avatar">${username.charAt(0).toUpperCase()}</div>
+                <div class="detail-avatar">${user && user.avatar ? `<img src="${user.avatar}" alt="${username}" style="width: 100%; height: 100%; border-radius: 12px; object-fit: cover;">` : username.charAt(0).toUpperCase()}</div>
                 <div class="detail-user-text">
                     <div class="detail-user-name">${username}</div>
                     <div class="detail-user-email">${email}</div>
