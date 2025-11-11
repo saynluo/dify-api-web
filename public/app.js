@@ -24,6 +24,9 @@ class ChatApp {
         if (window.UserSettings) {
             window.UserSettings.init(this);
         }
+
+        // 检查URL中是否有邀请码参数
+        this.checkInviteCode();
     }
     
     async loadConfig() {
@@ -406,8 +409,34 @@ class ChatApp {
             this.updateLoginState(false);
         }
     }
+
+    // 检查URL中的邀请码参数
+    checkInviteCode() {
+        // 如果用户已登录，不需要处理邀请码
+        if (this.currentUser) {
+            console.log('用户已登录，跳过邀请码检查');
+            return;
+        }
+
+        // 解析URL参数
+        const urlParams = new URLSearchParams(window.location.search);
+        const inviteCode = urlParams.get('invite') || urlParams.get('inviteCode');
+
+        if (inviteCode) {
+            console.log('检测到邀请码:', inviteCode);
+
+            // 延迟一小段时间后打开注册界面，确保页面已完全初始化
+            setTimeout(() => {
+                this.showAuthModal('register', inviteCode);
+                console.log('已自动打开注册界面并预填邀请码');
+            }, 300);
+
+            // 清理URL参数（可选，避免刷新页面时重复打开）
+            // window.history.replaceState({}, document.title, window.location.pathname);
+        }
+    }
     
-    showAuthModal(mode = 'login') {
+    showAuthModal(mode = 'login', inviteCode = null) {
         const modal = document.getElementById('authModal');
         const title = document.getElementById('authTitle');
         const submitBtn = document.getElementById('authSubmit');
@@ -415,17 +444,19 @@ class ChatApp {
         const switchLink = document.getElementById('authSwitchLink');
         const usernameGroup = document.getElementById('usernameGroup');
         const emailGroup = document.getElementById('emailGroup');
+        const inviteCodeGroup = document.getElementById('inviteCodeGroup');
         const loginUsernameGroup = document.querySelector('[for="loginUsername"]').parentElement;
-        
+
         // 设置当前认证模式
         this.currentAuthMode = mode;
         console.log('设置认证模式为:', mode);
-        
+
         // 获取输入字段
         const usernameInput = document.getElementById('username');
         const emailInput = document.getElementById('email');
+        const inviteCodeInput = document.getElementById('inviteCodeReg');
         const loginUsernameInput = document.getElementById('loginUsername');
-        
+
         if (mode === 'login') {
             title.textContent = '登录';
             submitBtn.textContent = '登录';
@@ -433,8 +464,9 @@ class ChatApp {
             switchLink.textContent = '注册';
             usernameGroup.style.display = 'none';
             emailGroup.style.display = 'none';
+            inviteCodeGroup.style.display = 'none';
             loginUsernameGroup.style.display = 'block';
-            
+
             // 移除隐藏字段的required属性
             usernameInput.removeAttribute('required');
             emailInput.removeAttribute('required');
@@ -446,14 +478,20 @@ class ChatApp {
             switchLink.textContent = '登录';
             usernameGroup.style.display = 'block';
             emailGroup.style.display = 'block';
+            inviteCodeGroup.style.display = 'block';
             loginUsernameGroup.style.display = 'none';
-            
+
             // 设置显示字段的required属性
             usernameInput.setAttribute('required', '');
             emailInput.setAttribute('required', '');
             loginUsernameInput.removeAttribute('required');
+
+            // 如果有邀请码，预填到输入框
+            if (inviteCode && inviteCodeInput) {
+                inviteCodeInput.value = inviteCode;
+            }
         }
-        
+
         modal.classList.add('show');
     }
     
@@ -472,12 +510,12 @@ class ChatApp {
         const form = document.getElementById('authForm');
         const formData = new FormData(form);
         const errorDiv = document.getElementById('authError');
-        
+
         console.log('表单提交处理开始');
         console.log('当前认证模式:', this.currentAuthMode);
-        
+
         errorDiv.style.display = 'none';
-        
+
         let data;
         if (this.currentAuthMode === 'login') {
             data = {
@@ -490,14 +528,20 @@ class ChatApp {
                 email: formData.get('email'),
                 password: formData.get('password')
             };
+
+            // 添加邀请码（如果有）
+            const inviteCode = formData.get('inviteCode');
+            if (inviteCode && inviteCode.trim()) {
+                data.inviteCode = inviteCode.trim();
+            }
         }
-        
-        console.log('表单数据提取结果:', { 
-            mode: this.currentAuthMode, 
+
+        console.log('表单数据提取结果:', {
+            mode: this.currentAuthMode,
             formEntries: [...formData.entries()],
             extractedData: { ...data, password: data.password ? '***' : 'empty' }
         });
-        
+
         // 验证必填字段
         if (!data.username || !data.password) {
             console.error('缺少必填字段:', data);
@@ -505,14 +549,14 @@ class ChatApp {
             errorDiv.style.display = 'block';
             return;
         }
-        
+
         if (this.currentAuthMode === 'register' && !data.email) {
             console.error('注册时缺少邮箱');
             errorDiv.textContent = '请填写邮箱地址';
             errorDiv.style.display = 'block';
             return;
         }
-        
+
         try {
             const response = await fetch(`/api/auth/${this.currentAuthMode}`, {
                 method: 'POST',
@@ -521,12 +565,12 @@ class ChatApp {
                 },
                 body: JSON.stringify(data)
             });
-            
+
             console.log('认证响应状态:', response.status);
-            
+
             const result = await response.json();
             console.log('认证响应数据:', result);
-            
+
             if (response.ok) {
                 this.token = result.token;
                 this.currentUser = result.user;
