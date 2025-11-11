@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AI助手管理后台</title>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <script src="chart.umd.min.js"></script>
     <style>
         * {
             margin: 0;
@@ -988,6 +988,7 @@
                         <table>
                             <thead>
                                 <tr>
+                                    <th>头像</th>
                                     <th>用户名</th>
                                     <th>邮箱</th>
                                     <th>积分</th>
@@ -996,7 +997,7 @@
                                 </tr>
                             </thead>
                             <tbody id="usersTableBody">
-                                <tr><td colspan="5" class="loading">加载中...</td></tr>
+                                <tr><td colspan="6" class="loading">加载中...</td></tr>
                             </tbody>
                         </table>
                         <div id="usersPagination" class="pagination"></div>
