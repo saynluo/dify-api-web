@@ -31,7 +31,7 @@
 
 ## ✨ 功能特性
 
-### 💎 积分系统 (v2.1.0 新增)
+### 💎 积分系统
 
 <table>
 <tr>
@@ -313,26 +313,6 @@ pm2 logs dify-api-web
 # 设置开机自启
 pm2 startup
 pm2 save
-```
-
-### Docker部署
-
-```bash
-# 构建镜像
-docker build -t dify-api-web .
-
-# 运行容器
-docker run -d \
-  --name dify-api-web \
-  -p 3000:3000 \
-  -e DIFY_API_KEY=your-api-key \
-  -e JWT_SECRET=your-jwt-secret \
-  -v $(pwd)/database.sqlite:/app/database.sqlite \
-  -v $(pwd)/uploads:/app/uploads \
-  dify-api-web
-
-# 查看日志
-docker logs -f dify-api-web
 ```
 
 ### Nginx反向代理
