@@ -593,10 +593,6 @@ class ChatApp {
             if (username) username.textContent = '未登录';
             if (avatar) avatar.textContent = '?';
 
-            // 隐藏设置按钮
-            const settingsBtn = document.getElementById('settingsBtn');
-            if (settingsBtn) settingsBtn.style.display = 'none';
-
             // 隐藏积分显示
             const pointsDisplay = document.getElementById('pointsDisplay');
             const inputPointsBadge = document.getElementById('inputPointsBadge');

@@ -2462,6 +2462,20 @@ body::before {
     align-items: center;
     justify-content: center;
     overflow: hidden;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    position: relative;
+}
+
+/* 侧边栏头像悬停效果 */
+.sidebar .user-avatar:hover {
+    transform: scale(1.1);
+    box-shadow: 0 4px 12px rgba(0, 82, 204, 0.3);
+}
+
+/* 侧边栏头像激活效果 */
+.sidebar .user-avatar:active {
+    transform: scale(1.05);
 }
 
 .user-avatar img {

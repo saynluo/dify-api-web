@@ -3,12 +3,18 @@
 
 // 初始化用户设置功能
 function initUserSettings(app) {
-    // 绑定设置按钮事件
-    const settingsBtn = document.getElementById('settingsBtn');
-    if (settingsBtn) {
-        settingsBtn.addEventListener('click', () => {
-            showSettingsModal(app);
+    // 绑定侧边栏头像点击事件打开设置
+    const sidebarUserAvatar = document.getElementById('sidebarUserAvatar');
+    if (sidebarUserAvatar) {
+        sidebarUserAvatar.addEventListener('click', () => {
+            // 只有登录状态下才能打开设置
+            if (app.token) {
+                showSettingsModal(app);
+            }
         });
+        // 添加鼠标悬停效果提示
+        sidebarUserAvatar.style.cursor = 'pointer';
+        sidebarUserAvatar.title = '点击设置个人信息';
     }
 
     // 绑定关闭按钮
@@ -264,15 +270,10 @@ function updateUserAvatar(avatarUrl, app) {
 // 更新用户信息显示（在登录后调用）
 function updateUserInfo(user) {
     const currentUsername = document.getElementById('currentUsername');
-    const settingsBtn = document.getElementById('settingsBtn');
     const sidebarAvatar = document.getElementById('sidebarUserAvatar');
 
     if (currentUsername) {
         currentUsername.textContent = user.username;
-    }
-
-    if (settingsBtn) {
-        settingsBtn.style.display = 'inline-block';
     }
 
     // 显示用户头像
