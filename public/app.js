@@ -1382,13 +1382,11 @@ class ChatApp {
     addMessage(message) {
         const container = document.getElementById('messagesContainer');
 
-        // 使用新的渲染方式处理助手消息
-        let contentHtml;
-        if (message.role === 'assistant') {
-            // 检查是否包含 <think> 标签，如果有则分离处理
-            let content = message.content || '';
-            let thinkingContent = '';
+        // 检查是否包含 <think> 标签，如果有则分离处理
+        let content = message.content || '';
+        let thinkingContent = '';
 
+        if (message.role === 'assistant') {
             // 如果消息包含 <think> 标签，进行分离
             if (content.includes('<think>')) {
                 const separated = this.separateThinkingContent(content);
@@ -1403,14 +1401,6 @@ class ChatApp {
 
             // 检查是否有工具调用信息 (从metadata解析或从消息内容中提取)
             this.extractAndRenderToolCalls(message, content);
-
-            // 创建临时容器进行渲染
-            const tempContainer = document.createElement('div');
-            tempContainer.className = 'markdown-content';
-            this.renderMarkdownContent(content, tempContainer);
-            contentHtml = tempContainer.outerHTML;
-        } else {
-            contentHtml = this.escapeHtml(message.content);
         }
 
         // 创建消息元素
@@ -1423,6 +1413,7 @@ class ChatApp {
 
         const roleName = message.role === 'user' ? '您' : 'AI助手';
 
+        // 先创建消息框架（不包含内容）
         messageDiv.innerHTML = `
             <div class="message-header">
                 <div class="message-avatar">${avatar}</div>
@@ -1432,12 +1423,26 @@ class ChatApp {
                 </div>
             </div>
             <div class="message-content">
-                ${contentHtml}
+                ${message.role === 'assistant' ? '<div class="markdown-content"></div>' : ''}
                 ${message.role === 'assistant' && message.id ? this.createMessageActions(message.id) : ''}
             </div>
         `;
 
         container.appendChild(messageDiv);
+
+        // 添加消息内容
+        const messageContent = messageDiv.querySelector('.message-content');
+        if (message.role === 'assistant') {
+            // 对于助手消息，直接在 DOM 上调用 renderMarkdownContent（保留事件监听器）
+            const markdownContainer = messageContent.querySelector('.markdown-content');
+            if (markdownContainer) {
+                this.renderMarkdownContent(content, markdownContainer);
+            }
+        } else {
+            // 对于用户消息，直接插入文本
+            messageContent.textContent = message.content;
+        }
+
         this.scrollToBottom();
         return messageDiv;
     }
@@ -1741,15 +1746,71 @@ class ChatApp {
             container.innerHTML = '';
             return;
         }
-        
+
         // 彻底清理内容：移除所有多余空白
         const cleanedContent = this.aggressiveCleanContent(content);
-        
+
         // 使用marked渲染
         container.innerHTML = marked.parse(cleanedContent);
-        
+
         // 渲染后再次清理HTML中的空白
         this.cleanRenderedHTML(container);
+
+        // 为代码块添加复制按钮
+        this.addCopyButtonsToCodeBlocks(container);
+    }
+
+    // 为代码块添加复制按钮
+    addCopyButtonsToCodeBlocks(container) {
+        // 找到所有代码块 (pre > code)
+        const codeBlocks = container.querySelectorAll('pre');
+
+        codeBlocks.forEach((pre) => {
+            // 检查是否已经添加过复制按钮
+            if (pre.querySelector('.code-copy-btn')) {
+                return;
+            }
+
+            // 为 pre 元素添加相对定位，以便按钮绝对定位
+            pre.style.position = 'relative';
+
+            // 创建复制按钮
+            const copyBtn = document.createElement('button');
+            copyBtn.className = 'code-copy-btn';
+            copyBtn.innerHTML = '<span class="copy-icon">📋</span><span class="copy-text">复制</span>';
+            copyBtn.title = '复制代码';
+
+            // 添加点击事件
+            copyBtn.addEventListener('click', async () => {
+                const code = pre.querySelector('code');
+                const text = code ? code.textContent : pre.textContent;
+
+                try {
+                    // 使用 Clipboard API 复制文本
+                    await navigator.clipboard.writeText(text);
+
+                    // 更改按钮状态为已复制
+                    copyBtn.innerHTML = '<span class="copy-icon">✓</span><span class="copy-text">已复制</span>';
+                    copyBtn.classList.add('copied');
+
+                    // 2秒后恢复按钮状态
+                    setTimeout(() => {
+                        copyBtn.innerHTML = '<span class="copy-icon">📋</span><span class="copy-text">复制</span>';
+                        copyBtn.classList.remove('copied');
+                    }, 2000);
+                } catch (err) {
+                    console.error('复制失败:', err);
+                    // 显示复制失败提示
+                    copyBtn.innerHTML = '<span class="copy-icon">✗</span><span class="copy-text">失败</span>';
+                    setTimeout(() => {
+                        copyBtn.innerHTML = '<span class="copy-icon">📋</span><span class="copy-text">复制</span>';
+                    }, 2000);
+                }
+            });
+
+            // 将按钮添加到 pre 元素中
+            pre.appendChild(copyBtn);
+        });
     }
     
     // 激进的内容清理方法
@@ -2148,6 +2209,8 @@ class ChatApp {
         const contentDiv = messageElement.querySelector('.markdown-content');
         if (contentDiv) {
             contentDiv.innerHTML = DOMPurify.sanitize(marked.parse(content));
+            // 为代码块添加复制按钮
+            this.addCopyButtonsToCodeBlocks(contentDiv);
         }
         this.scrollToBottom();
     }
