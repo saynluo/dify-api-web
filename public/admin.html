@@ -854,6 +854,207 @@
                 grid-template-columns: 1fr;
             }
         }
+
+        /* 验证设置页面样式 */
+        .settings-card {
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+        }
+
+        .settings-header {
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 2px solid #f0f0f0;
+        }
+
+        .settings-header h3 {
+            margin: 0 0 10px 0;
+            color: #333;
+            font-size: 20px;
+        }
+
+        .settings-desc {
+            margin: 0;
+            color: #666;
+            font-size: 14px;
+        }
+
+        .form-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .switch-label {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 16px 20px;
+            background: linear-gradient(135deg, #f8fbff 0%, #f0f7ff 100%);
+            border: 2px solid #e3f2fd;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-bottom: 16px;
+        }
+
+        .switch-label:hover {
+            border-color: #90caf9;
+            box-shadow: 0 2px 8px rgba(0, 82, 204, 0.1);
+        }
+
+        .switch-text {
+            font-size: 15px;
+            font-weight: 600;
+            color: #0052cc;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .switch-text::before {
+            content: '🔘';
+            font-size: 18px;
+        }
+
+        .switch-control {
+            position: relative;
+            width: 56px;
+            height: 30px;
+            flex-shrink: 0;
+        }
+
+        .switch-input {
+            position: absolute;
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .switch-slider {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: #cbd5e1;
+            border-radius: 15px;
+            transition: all 0.3s ease;
+            box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .switch-slider::before {
+            content: '';
+            position: absolute;
+            width: 24px;
+            height: 24px;
+            left: 3px;
+            top: 3px;
+            background: white;
+            border-radius: 50%;
+            transition: all 0.3s ease;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        }
+
+        .switch-input:checked + .switch-slider {
+            background: linear-gradient(135deg, #0052cc 0%, #1976d2 100%);
+            box-shadow: 0 0 8px rgba(0, 82, 204, 0.3);
+        }
+
+        .switch-input:checked + .switch-slider::before {
+            transform: translateX(26px);
+        }
+
+        .switch-label:has(.switch-input:checked) {
+            background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
+            border-color: #0052cc;
+        }
+
+        .switch-label:has(.switch-input:checked) .switch-text::before {
+            content: '✅';
+        }
+
+        .input-hint {
+            display: block;
+            margin-top: 5px;
+            font-size: 12px;
+            color: #999;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        .btn-primary, .btn-secondary {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 15px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-secondary {
+            background: #f8f9fa;
+            color: #333;
+            border: 2px solid #e0e0e0;
+        }
+
+        .btn-secondary:hover {
+            background: #e9ecef;
+            border-color: #ccc;
+        }
+
+        .settings-tips {
+            margin-top: 30px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            border-left: 4px solid #667eea;
+        }
+
+        .settings-tips h4 {
+            margin: 0 0 15px 0;
+            color: #333;
+            font-size: 16px;
+        }
+
+        .settings-tips ul {
+            margin: 0;
+            padding-left: 20px;
+        }
+
+        .settings-tips li {
+            margin-bottom: 10px;
+            line-height: 1.6;
+            color: #555;
+        }
+
+        .settings-tips strong {
+            color: #667eea;
+        }
+
+        @media (max-width: 768px) {
+            .form-grid {
+                grid-template-columns: 1fr;
+            }
+        }
     </style>
 </head>
 <body>
@@ -893,6 +1094,7 @@
                 <div class="admin-menu-item" data-view="users">👥 用户管理</div>
                 <div class="admin-menu-item" data-view="conversations">💬 对话管理</div>
                 <div class="admin-menu-item" data-view="points">💎 积分管理</div>
+                <div class="admin-menu-item" data-view="emailSettings">📧 验证设置</div>
             </div>
 
             <!-- 主内容区 -->
@@ -1056,6 +1258,102 @@
                                     <div class="empty-text">请从左侧选择一个用户管理其积分</div>
                                 </div>
                             </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 邮箱验证设置 -->
+                <div id="emailSettingsView" class="view-content" style="display:none;">
+                    <h2 class="section-title">邮箱验证设置</h2>
+
+                    <div class="settings-card">
+                        <div class="settings-header">
+                            <h3>📧 SMTP邮件服务配置</h3>
+                            <p class="settings-desc">配置SMTP服务后，用户注册时需要验证邮箱</p>
+                        </div>
+
+                        <div style="background: #fff3cd; padding: 15px; border-radius: 8px; margin-bottom: 20px; border-left: 4px solid #ffc107;">
+                            <strong>⚠️ 重要提示：</strong>
+                            <ul style="margin: 10px 0 0 20px; line-height: 1.8;">
+                                <li>首次配置请按顺序操作：填写配置 → 保存 → 启用开关 → 测试邮件</li>
+                                <li>大多数邮箱服务需要使用<strong>授权码</strong>而非登录密码</li>
+                                <li>测试前务必先点击"保存配置"按钮</li>
+                            </ul>
+                        </div>
+
+                        <label class="switch-label" for="emailVerificationEnabled">
+                            <span class="switch-text">启用邮箱验证</span>
+                            <div class="switch-control">
+                                <input type="checkbox" id="emailVerificationEnabled" class="switch-input">
+                                <span class="switch-slider"></span>
+                            </div>
+                        </label>
+
+                        <div id="smtpConfigForm" style="display:none;">
+                            <div class="form-grid">
+                                <div class="form-group">
+                                    <label for="smtpHost">SMTP服务器地址*</label>
+                                    <input type="text" id="smtpHost" placeholder="例如: smtp.qq.com">
+                                    <span class="input-hint">邮件服务商的SMTP服务器地址</span>
+                                </div>
+
+                                <div class="form-group">
+                                    <label for="smtpPort">SMTP端口*</label>
+                                    <input type="number" id="smtpPort" value="587" placeholder="587">
+                                    <span class="input-hint">常用端口: 25, 465(SSL), 587(TLS)</span>
+                                </div>
+
+                                <div class="form-group">
+                                    <label for="smtpUser">SMTP用户名（邮箱地址）*</label>
+                                    <input type="email" id="smtpUser" placeholder="your-email@example.com">
+                                    <span class="input-hint">发件邮箱地址</span>
+                                </div>
+
+                                <div class="form-group">
+                                    <label for="smtpPassword">SMTP授权码/密码*</label>
+                                    <div style="position: relative;">
+                                        <input type="password" id="smtpPassword" placeholder="如需修改请输入新的授权码">
+                                        <button type="button" id="togglePasswordBtn" style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; color: #667eea; font-size: 14px; padding: 5px 10px;" onclick="togglePasswordVisibility()">👁️ 显示</button>
+                                    </div>
+                                    <span class="input-hint">大多数邮件服务需要授权码而非密码。已保存的授权码不会显示，如需修改请输入新的授权码</span>
+                                </div>
+
+                                <div class="form-group">
+                                    <label for="fromEmail">发件人邮箱</label>
+                                    <input type="email" id="fromEmail" placeholder="默认与SMTP用户名相同">
+                                    <span class="input-hint">可选，默认使用SMTP用户名</span>
+                                </div>
+
+                                <div class="form-group">
+                                    <label for="fromName">发件人名称</label>
+                                    <input type="text" id="fromName" value="AI智能助手" placeholder="AI智能助手">
+                                    <span class="input-hint">邮件中显示的发件人名称</span>
+                                </div>
+                            </div>
+
+                            <label class="switch-label" for="smtpSecure">
+                                <span class="switch-text">使用SSL加密连接（端口465）</span>
+                                <div class="switch-control">
+                                    <input type="checkbox" id="smtpSecure" class="switch-input">
+                                    <span class="switch-slider"></span>
+                                </div>
+                            </label>
+
+                            <div class="button-group">
+                                <button class="btn-primary" onclick="saveEmailSettings()">💾 保存配置</button>
+                                <button class="btn-secondary" onclick="testEmailSettings()">🧪 发送测试邮件</button>
+                            </div>
+                        </div>
+
+                        <div class="settings-tips">
+                            <h4>💡 配置提示</h4>
+                            <ul>
+                                <li><strong>QQ邮箱：</strong>SMTP服务器: smtp.qq.com，端口: 587（TLS）或 465（SSL），需要授权码</li>
+                                <li><strong>163邮箱：</strong>SMTP服务器: smtp.163.com，端口: 465（SSL），需要授权码</li>
+                                <li><strong>Gmail：</strong>SMTP服务器: smtp.gmail.com，端口: 587（TLS），需要应用专用密码</li>
+                                <li><strong>获取授权码：</strong>通常在邮箱设置 → 账户 → POP3/SMTP服务中开启并获取</li>
+                                <li><strong>测试邮件：</strong>保存配置后，使用"发送测试邮件"功能验证SMTP配置是否正确</li>
+                            </ul>
                         </div>
                     </div>
                 </div>

@@ -6,6 +6,7 @@ let currentPage = 1;
 let currentView = 'dashboard';
 let selectedConversationUser = null;
 let selectedPointsUser = null;
+let savedSmtpPassword = null; // 存储从后端获取的真实授权码
 
 // 辅助函数：获取用户头像HTML
 function getUserAvatarHTML(user, size = 40) {
@@ -1215,4 +1216,423 @@ function renderMessageTypeChart(stats) {
     }
 }
 
+// ========== 邮箱验证设置功能 ==========
+
+// 加载邮箱验证设置
+async function loadEmailSettings() {
+    try {
+        const response = await fetch('/api/admin/email-settings', {
+            headers: {
+                'Authorization': `Bearer ${adminToken}`
+            }
+        });
+
+        if (!response.ok) {
+            throw new Error('获取邮箱设置失败');
+        }
+
+        const settings = await response.json();
+
+        // 保存真实的授权码（如果后端返回了）
+        savedSmtpPassword = settings.smtp_password || null;
+
+        // 填充表单
+        document.getElementById('emailVerificationEnabled').checked = settings.enabled === 1;
+        document.getElementById('smtpHost').value = settings.smtp_host || '';
+        document.getElementById('smtpPort').value = settings.smtp_port || 587;
+        document.getElementById('smtpUser').value = settings.smtp_user || '';
+        document.getElementById('fromEmail').value = settings.from_email || '';
+        document.getElementById('fromName').value = settings.from_name || 'AI智能助手';
+        document.getElementById('smtpSecure').checked = settings.smtp_secure === 1;
+
+        // 如果已配置SMTP用户，说明已保存过密码，显示占位符
+        const passwordInput = document.getElementById('smtpPassword');
+        const toggleBtn = document.getElementById('togglePasswordBtn');
+
+        if (settings.smtp_user && savedSmtpPassword) {
+            // 后端返回了密码，显示占位符
+            passwordInput.value = '••••••••••••••••';
+            passwordInput.type = 'password';
+            passwordInput.setAttribute('data-has-password', 'true');
+        } else if (settings.smtp_user && !savedSmtpPassword) {
+            // 有配置但后端没返回密码（出于安全考虑），显示提示
+            passwordInput.value = '';
+            passwordInput.type = 'password';
+            passwordInput.placeholder = '已保存授权码，如需修改请输入新的授权码';
+            passwordInput.setAttribute('data-has-password', 'true');
+        } else {
+            passwordInput.value = '';
+            passwordInput.type = 'password';
+            passwordInput.removeAttribute('data-has-password');
+        }
+
+        // 重置显示按钮文本
+        if (toggleBtn) {
+            toggleBtn.textContent = '👁️ 显示';
+        }
+
+        // 根据启用状态显示/隐藏表单
+        toggleSmtpForm(settings.enabled === 1);
+    } catch (error) {
+        console.error('加载邮箱设置失败:', error);
+        showNotification('加载邮箱设置失败', 'error');
+    }
+}
+
+// 切换SMTP表单显示
+function toggleSmtpForm(show) {
+    const form = document.getElementById('smtpConfigForm');
+    if (form) {
+        form.style.display = show ? 'block' : 'none';
+    }
+}
+
+// 保存邮箱验证设置
+async function saveEmailSettings() {
+    const enabled = document.getElementById('emailVerificationEnabled').checked ? 1 : 0;
+    const smtpHost = document.getElementById('smtpHost').value.trim();
+    const smtpPort = parseInt(document.getElementById('smtpPort').value) || 587;
+    const smtpUser = document.getElementById('smtpUser').value.trim();
+    const passwordInput = document.getElementById('smtpPassword');
+    const smtpPassword = passwordInput.value.trim();
+    const fromEmail = document.getElementById('fromEmail').value.trim();
+    const fromName = document.getElementById('fromName').value.trim();
+    const smtpSecure = document.getElementById('smtpSecure').checked ? 1 : 0;
+
+    // 如果启用，验证必填字段
+    if (enabled) {
+        if (!smtpHost || !smtpUser) {
+            showNotification('请填写SMTP服务器地址和用户名', 'error');
+            return;
+        }
+    }
+
+    try {
+        const data = {
+            enabled,
+            smtp_host: smtpHost,
+            smtp_port: smtpPort,
+            smtp_user: smtpUser,
+            from_email: fromEmail || smtpUser,
+            from_name: fromName || 'AI智能助手',
+            smtp_secure: smtpSecure
+        };
+
+        // 只有填写了新密码才发送（不是占位符）
+        const hasPassword = passwordInput.getAttribute('data-has-password') === 'true';
+        const isPlaceholder = smtpPassword === '••••••••••••••••';
+
+        if (smtpPassword && !isPlaceholder) {
+            data.smtp_password = smtpPassword;
+        }
+
+        const response = await fetch('/api/admin/email-settings', {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${adminToken}`
+            },
+            body: JSON.stringify(data)
+        });
+
+        const result = await response.json();
+
+        if (!response.ok) {
+            throw new Error(result.error || '保存失败');
+        }
+
+        // 如果保存了新密码，更新 savedSmtpPassword
+        if (smtpPassword && !isPlaceholder) {
+            savedSmtpPassword = smtpPassword;
+        }
+
+        showNotification('邮箱验证设置保存成功！', 'success');
+
+        // 保存成功后显示占位符，并重置输入框状态
+        passwordInput.value = '••••••••••••••••';
+        passwordInput.type = 'password';  // 确保类型为password
+        passwordInput.setAttribute('data-has-password', 'true');
+
+        // 重置显示按钮文本
+        const toggleBtn = document.getElementById('togglePasswordBtn');
+        if (toggleBtn) {
+            toggleBtn.textContent = '👁️ 显示';
+        }
+    } catch (error) {
+        console.error('保存邮箱设置失败:', error);
+        showNotification(error.message || '保存邮箱设置失败', 'error');
+    }
+}
+
+// 测试SMTP配置
+async function testEmailSettings() {
+    // 检查是否启用了邮箱验证
+    const enabled = document.getElementById('emailVerificationEnabled').checked;
+    if (!enabled) {
+        showNotification('请先启用邮箱验证功能', 'error');
+        return;
+    }
+
+    // 检查必填字段
+    const smtpHost = document.getElementById('smtpHost').value.trim();
+    const smtpUser = document.getElementById('smtpUser').value.trim();
+    const smtpPassword = document.getElementById('smtpPassword').value.trim();
+
+    if (!smtpHost || !smtpUser) {
+        showNotification('请先填写SMTP服务器地址和用户名，然后保存配置', 'error');
+        return;
+    }
+
+    // 提示用户如果修改了配置需要先保存
+    if (smtpPassword) {
+        const confirmSave = confirm('检测到您填写了新的SMTP密码。\n\n请确认：\n1. 是否已点击"保存配置"按钮？\n2. 如果未保存，请先保存后再测试。\n\n点击"确定"继续测试，点击"取消"返回保存配置。');
+        if (!confirmSave) {
+            return;
+        }
+    }
+
+    const testEmail = prompt('请输入测试邮箱地址：');
+
+    if (!testEmail) {
+        return;
+    }
+
+    // 验证邮箱格式
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(testEmail)) {
+        showNotification('邮箱地址格式不正确', 'error');
+        return;
+    }
+
+    try {
+        showNotification('正在发送测试邮件，请稍候...', 'info');
+
+        const response = await fetch('/api/admin/email-settings/test', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${adminToken}`
+            },
+            body: JSON.stringify({ email: testEmail })
+        });
+
+        const result = await response.json();
+
+        if (!response.ok) {
+            throw new Error(result.error || result.details || '发送失败');
+        }
+
+        showNotification(`✅ 测试邮件已成功发送到 ${testEmail}\n\n请检查邮箱（包括垃圾邮件文件夹）！`, 'success');
+    } catch (error) {
+        console.error('发送测试邮件失败:', error);
+
+        // 显示详细的错误信息
+        let errorMessage = '发送测试邮件失败\n\n';
+        if (error.message.includes('无法连接')) {
+            errorMessage += '❌ 错误原因：无法连接到SMTP服务器\n\n';
+            errorMessage += '🔧 解决方案：\n';
+            errorMessage += '1. 检查SMTP服务器地址是否正确\n';
+            errorMessage += '2. 检查端口号是否正确（587/465）\n';
+            errorMessage += '3. 检查网络连接和防火墙设置';
+        } else if (error.message.includes('认证失败')) {
+            errorMessage += '❌ 错误原因：SMTP认证失败\n\n';
+            errorMessage += '🔧 解决方案：\n';
+            errorMessage += '1. 检查邮箱地址是否正确\n';
+            errorMessage += '2. 确认使用的是授权码而非密码\n';
+            errorMessage += '3. 重新生成授权码并保存';
+        } else {
+            errorMessage += '❌ ' + error.message;
+        }
+
+        alert(errorMessage);
+        showNotification(error.message, 'error');
+    }
+}
+
+// 通知函数
+function showNotification(message, type = 'info') {
+    // 创建通知元素
+    const notification = document.createElement('div');
+    notification.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        padding: 16px 24px;
+        background: ${type === 'success' ? '#4CAF50' : type === 'error' ? '#f44336' : '#2196F3'};
+        color: white;
+        border-radius: 8px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        z-index: 10000;
+        font-size: 14px;
+        font-weight: 500;
+        animation: slideIn 0.3s ease-out;
+    `;
+    notification.textContent = message;
+
+    // 添加动画样式
+    if (!document.getElementById('notificationStyles')) {
+        const style = document.createElement('style');
+        style.id = 'notificationStyles';
+        style.textContent = `
+            @keyframes slideIn {
+                from {
+                    transform: translateX(400px);
+                    opacity: 0;
+                }
+                to {
+                    transform: translateX(0);
+                    opacity: 1;
+                }
+            }
+            @keyframes slideOut {
+                from {
+                    transform: translateX(0);
+                    opacity: 1;
+                }
+                to {
+                    transform: translateX(400px);
+                    opacity: 0;
+                }
+            }
+        `;
+        document.head.appendChild(style);
+    }
+
+    document.body.appendChild(notification);
+
+    // 3秒后自动消失
+    setTimeout(() => {
+        notification.style.animation = 'slideOut 0.3s ease-out';
+        setTimeout(() => {
+            document.body.removeChild(notification);
+        }, 300);
+    }, 3000);
+}
+
+// 在switchView函数中添加emailSettings视图的处理
+const originalSwitchView = window.switchView;
+window.switchView = function(view) {
+    if (view === 'emailSettings') {
+        // 调用原始函数切换视图
+        if (originalSwitchView) {
+            originalSwitchView(view);
+        } else {
+            // 如果原始函数不存在，手动切换
+            document.querySelectorAll('.admin-menu-item').forEach(item => {
+                item.classList.remove('active');
+                if (item.dataset.view === view) {
+                    item.classList.add('active');
+                }
+            });
+
+            document.querySelectorAll('.view-content').forEach(content => {
+                content.style.display = 'none';
+            });
+
+            const viewElement = document.getElementById(view + 'View');
+            if (viewElement) {
+                viewElement.style.display = 'block';
+            }
+        }
+
+        // 加载邮箱设置
+        loadEmailSettings();
+    } else if (originalSwitchView) {
+        originalSwitchView(view);
+    }
+};
+
+// 监听邮箱验证启用开关
+document.addEventListener('DOMContentLoaded', () => {
+    const enabledSwitch = document.getElementById('emailVerificationEnabled');
+    if (enabledSwitch) {
+        enabledSwitch.addEventListener('change', (e) => {
+            toggleSmtpForm(e.target.checked);
+        });
+    }
+});
+
+// 切换密码可见性
+function togglePasswordVisibility() {
+    const passwordInput = document.getElementById('smtpPassword');
+    const toggleBtn = document.getElementById('togglePasswordBtn');
+
+    // 检测是否是占位符
+    const isPlaceholder = passwordInput.value === '••••••••••••••••';
+
+    if (isPlaceholder) {
+        // 如果是占位符，检查是否有保存的真实密码
+        if (savedSmtpPassword) {
+            // 显示真实密码
+            passwordInput.value = savedSmtpPassword;
+            passwordInput.type = 'text';
+            toggleBtn.textContent = '🙈 隐藏';
+        } else {
+            // 没有保存的密码（后端出于安全考虑未返回）
+            alert('⚠️ 已保存的授权码无法显示\n\n出于安全考虑，后端未返回已保存的授权码。\n如需修改，请点击输入框清空后重新输入新的授权码。');
+        }
+        return;
+    }
+
+    // 如果输入框为空，提示用户
+    if (passwordInput.value === '') {
+        alert('💡 密码框为空\n\n请先输入授权码');
+        return;
+    }
+
+    // 正常切换显示/隐藏
+    if (passwordInput.type === 'password') {
+        passwordInput.type = 'text';
+        toggleBtn.textContent = '🙈 隐藏';
+    } else {
+        // 如果当前显示的是真实密码，隐藏时恢复为占位符
+        if (passwordInput.value === savedSmtpPassword && savedSmtpPassword) {
+            passwordInput.value = '••••••••••••••••';
+        }
+        passwordInput.type = 'password';
+        toggleBtn.textContent = '👁️ 显示';
+    }
+}
+
+// 监听密码输入框的输入事件，清除占位符标记
+document.addEventListener('DOMContentLoaded', () => {
+    const passwordInput = document.getElementById('smtpPassword');
+    const toggleBtn = document.getElementById('togglePasswordBtn');
+
+    if (passwordInput) {
+        passwordInput.addEventListener('focus', function() {
+            // 当用户聚焦到密码框时，如果是占位符就清空
+            if (this.value === '••••••••••••••••') {
+                this.value = '';
+                this.removeAttribute('data-has-password');
+                this.placeholder = '请输入新的授权码（留空则保持原有授权码不变）';
+                // 重置显示按钮
+                if (toggleBtn) {
+                    toggleBtn.textContent = '👁️ 显示';
+                }
+            }
+        });
+
+        passwordInput.addEventListener('blur', function() {
+            // 失去焦点时，如果为空且之前有保存的密码，恢复占位符
+            if (this.value === '' && savedSmtpPassword) {
+                this.value = '••••••••••••••••';
+                this.setAttribute('data-has-password', 'true');
+                this.placeholder = '如需修改请输入新的授权码';
+            } else if (this.value === '') {
+                this.placeholder = '如需修改请输入新的授权码';
+            }
+        });
+
+        passwordInput.addEventListener('input', function() {
+            // 当用户输入内容时，确保密码框类型为password，并重置显示按钮
+            if (this.value !== '' && this.value !== '••••••••••••••••') {
+                this.type = 'password';
+                if (toggleBtn) {
+                    toggleBtn.textContent = '👁️ 显示';
+                }
+            }
+        });
+    }
+});
 

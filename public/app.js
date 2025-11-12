@@ -65,7 +65,7 @@ class ChatApp {
 %c3. 网络连接是否正常
 
 %c请重新启动应用或检查服务器日志。
-        `, 
+        `,
             'color: #e74c3c; font-size: 16px; font-weight: bold;',
             'color: #2c3e50; font-size: 14px;',
             'color: #e67e22; font-weight: bold;',
@@ -74,7 +74,103 @@ class ChatApp {
             'color: #c0392b; font-size: 14px; font-weight: bold;'
         );
     }
-    
+
+    // 检查邮箱验证是否启用
+    async checkEmailVerificationStatus() {
+        try {
+            const response = await fetch('/api/email-verification/status');
+            if (response.ok) {
+                const result = await response.json();
+                return result.enabled || false;
+            }
+            return false;
+        } catch (error) {
+            console.error('检查邮箱验证状态失败:', error);
+            return false;
+        }
+    }
+
+    // 发送验证码
+    async sendVerificationCode() {
+        const emailInput = document.getElementById('email');
+        const sendBtn = document.getElementById('sendVerificationCodeBtn');
+        const errorDiv = document.getElementById('authError');
+
+        if (!emailInput || !emailInput.value) {
+            errorDiv.textContent = '请先输入邮箱地址';
+            errorDiv.style.display = 'block';
+            return;
+        }
+
+        const email = emailInput.value.trim();
+
+        // 验证邮箱格式
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(email)) {
+            errorDiv.textContent = '邮箱地址格式不正确';
+            errorDiv.style.display = 'block';
+            return;
+        }
+
+        // 禁用按钮并显示加载状态
+        sendBtn.disabled = true;
+        sendBtn.textContent = '发送中...';
+        errorDiv.style.display = 'none';
+
+        try {
+            const response = await fetch('/api/email-verification/send', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ email, type: 'register' })
+            });
+
+            const result = await response.json();
+
+            if (response.ok) {
+                this.showNotification('验证码已发送到您的邮箱，请注意查收', 'success');
+                // 开始倒计时（60秒）
+                this.startCountdown(sendBtn, 60);
+            } else {
+                errorDiv.textContent = result.error || '发送验证码失败';
+                errorDiv.style.display = 'block';
+                sendBtn.disabled = false;
+                sendBtn.textContent = '发送验证码';
+            }
+        } catch (error) {
+            console.error('发送验证码失败:', error);
+            errorDiv.textContent = '发送验证码失败，请稍后重试';
+            errorDiv.style.display = 'block';
+            sendBtn.disabled = false;
+            sendBtn.textContent = '发送验证码';
+        }
+    }
+
+    // 倒计时功能
+    startCountdown(button, seconds) {
+        let remaining = seconds;
+        button.classList.add('countdown');
+
+        const updateButton = () => {
+            button.textContent = `${remaining}秒后重试`;
+        };
+
+        updateButton();
+
+        const timer = setInterval(() => {
+            remaining--;
+            if (remaining <= 0) {
+                clearInterval(timer);
+                button.disabled = false;
+                button.classList.remove('countdown');
+                button.textContent = '发送验证码';
+            } else {
+                updateButton();
+            }
+        }, 1000);
+    }
+
     // 获取应用信息
     async loadAppInfo() {
         try {
@@ -273,7 +369,16 @@ class ChatApp {
                 this.handleAuth();
             });
         }
-        
+
+        // 发送验证码按钮
+        const sendVerificationCodeBtn = document.getElementById('sendVerificationCodeBtn');
+        if (sendVerificationCodeBtn) {
+            sendVerificationCodeBtn.addEventListener('click', () => {
+                console.log('发送验证码按钮被点击');
+                this.sendVerificationCode();
+            });
+        }
+
         // 消息输入
         const messageInput = document.getElementById('messageInput');
         if (messageInput) {
@@ -444,6 +549,7 @@ class ChatApp {
         const switchLink = document.getElementById('authSwitchLink');
         const usernameGroup = document.getElementById('usernameGroup');
         const emailGroup = document.getElementById('emailGroup');
+        const verificationCodeGroup = document.getElementById('verificationCodeGroup');
         const inviteCodeGroup = document.getElementById('inviteCodeGroup');
         const loginUsernameGroup = document.querySelector('[for="loginUsername"]').parentElement;
 
@@ -454,6 +560,7 @@ class ChatApp {
         // 获取输入字段
         const usernameInput = document.getElementById('username');
         const emailInput = document.getElementById('email');
+        const verificationCodeInput = document.getElementById('verificationCode');
         const inviteCodeInput = document.getElementById('inviteCodeReg');
         const loginUsernameInput = document.getElementById('loginUsername');
 
@@ -464,12 +571,14 @@ class ChatApp {
             switchLink.textContent = '注册';
             usernameGroup.style.display = 'none';
             emailGroup.style.display = 'none';
+            verificationCodeGroup.style.display = 'none';
             inviteCodeGroup.style.display = 'none';
             loginUsernameGroup.style.display = 'block';
 
             // 移除隐藏字段的required属性
             usernameInput.removeAttribute('required');
             emailInput.removeAttribute('required');
+            if (verificationCodeInput) verificationCodeInput.removeAttribute('required');
             loginUsernameInput.setAttribute('required', '');
         } else {
             title.textContent = '注册';
@@ -485,6 +594,21 @@ class ChatApp {
             usernameInput.setAttribute('required', '');
             emailInput.setAttribute('required', '');
             loginUsernameInput.removeAttribute('required');
+
+            // 检查邮箱验证是否启用，动态显示验证码输入框
+            this.checkEmailVerificationStatus().then(enabled => {
+                if (enabled) {
+                    verificationCodeGroup.style.display = 'block';
+                    if (verificationCodeInput) {
+                        verificationCodeInput.setAttribute('required', '');
+                    }
+                } else {
+                    verificationCodeGroup.style.display = 'none';
+                    if (verificationCodeInput) {
+                        verificationCodeInput.removeAttribute('required');
+                    }
+                }
+            });
 
             // 如果有邀请码，预填到输入框
             if (inviteCode && inviteCodeInput) {
@@ -533,6 +657,12 @@ class ChatApp {
             const inviteCode = formData.get('inviteCode');
             if (inviteCode && inviteCode.trim()) {
                 data.inviteCode = inviteCode.trim();
+            }
+
+            // 添加验证码（如果有）
+            const verificationCode = formData.get('verificationCode');
+            if (verificationCode && verificationCode.trim()) {
+                data.verificationCode = verificationCode.trim();
             }
         }
 

@@ -12,6 +12,7 @@ require('dotenv').config();
 
 const difyService = require('./services/difyService');
 const authMiddleware = require('./middleware/auth');
+const EmailService = require('./services/emailService');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -180,7 +181,65 @@ db.serialize(() => {
             console.log('用户表邀请码字段已存在或创建失败');
         }
     });
+
+    // 邮箱验证设置表
+    db.run(`
+        CREATE TABLE IF NOT EXISTS email_verification_settings (
+            id TEXT PRIMARY KEY,
+            enabled INTEGER DEFAULT 0,
+            smtp_host TEXT,
+            smtp_port INTEGER DEFAULT 587,
+            smtp_secure INTEGER DEFAULT 0,
+            smtp_user TEXT,
+            smtp_password TEXT,
+            from_email TEXT,
+            from_name TEXT DEFAULT 'AI智能助手',
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+    `);
+
+    // 初始化默认邮箱验证设置
+    db.run(`
+        INSERT OR IGNORE INTO email_verification_settings (id, enabled)
+        VALUES ('default', 0)
+    `);
+
+    // 邮箱验证码表
+    db.run(`
+        CREATE TABLE IF NOT EXISTS email_verification_codes (
+            id TEXT PRIMARY KEY,
+            email TEXT NOT NULL,
+            code TEXT NOT NULL,
+            type TEXT NOT NULL CHECK (type IN ('register', 'reset_password')),
+            expires_at DATETIME NOT NULL,
+            verified INTEGER DEFAULT 0,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            verified_at DATETIME
+        )
+    `);
+
+    // 为验证码表添加索引以提高查询性能
+    db.run(`
+        CREATE INDEX IF NOT EXISTS idx_email_verification_codes_email
+        ON email_verification_codes(email)
+    `);
+
+    db.run(`
+        CREATE INDEX IF NOT EXISTS idx_email_verification_codes_expires
+        ON email_verification_codes(expires_at)
+    `);
 });
+
+// 初始化邮件服务
+const emailService = new EmailService(db);
+
+// 定期清理过期验证码（每小时执行一次）
+setInterval(() => {
+    emailService.cleanupExpiredCodes().catch(err => {
+        console.error('清理过期验证码失败:', err);
+    });
+}, 60 * 60 * 1000);
 
 // 中间件配置
 app.use(cors({
@@ -255,6 +314,75 @@ app.get('/api/config', (req, res) => {
     });
 });
 
+// 检查邮箱验证是否启用
+app.get('/api/email-verification/status', async (req, res) => {
+    try {
+        const enabled = await emailService.isEnabled();
+        res.json({ enabled });
+    } catch (error) {
+        console.error('检查邮箱验证状态失败:', error);
+        res.json({ enabled: false });
+    }
+});
+
+// 发送验证码
+app.post('/api/email-verification/send', async (req, res) => {
+    try {
+        const { email, type = 'register' } = req.body;
+
+        if (!email) {
+            return res.status(400).json({ error: '邮箱地址不能为空' });
+        }
+
+        // 邮箱格式验证
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(email)) {
+            return res.status(400).json({ error: '邮箱地址格式不正确' });
+        }
+
+        // 检查邮箱验证功能是否启用
+        const enabled = await emailService.isEnabled();
+        if (!enabled) {
+            return res.status(400).json({ error: '邮箱验证功能未启用' });
+        }
+
+        // 如果是注册类型，检查邮箱是否已被注册
+        if (type === 'register') {
+            const existingUser = await new Promise((resolve, reject) => {
+                db.get('SELECT id FROM users WHERE email = ?', [email], (err, row) => {
+                    if (err) reject(err);
+                    else resolve(row);
+                });
+            });
+
+            if (existingUser) {
+                return res.status(400).json({ error: '该邮箱已被注册' });
+            }
+        }
+
+        // 生成验证码
+        const code = emailService.generateVerificationCode();
+
+        // 保存验证码到数据库
+        await emailService.saveVerificationCode(email, code, type);
+
+        // 发送验证码邮件
+        await emailService.sendVerificationCode(email, code, type);
+
+        res.json({
+            success: true,
+            message: '验证码已发送到您的邮箱，请注意查收'
+        });
+
+    } catch (error) {
+        console.error('发送验证码失败:', error);
+        res.status(500).json({
+            error: '发送验证码失败，请稍后重试',
+            details: error.message
+        });
+    }
+});
+
 // 获取应用参数 - 直接对接Dify API
 app.get('/api/parameters', async (req, res) => {
     try {
@@ -294,7 +422,7 @@ app.get('/api/parameters', async (req, res) => {
 // 用户注册
 app.post('/api/auth/register', async (req, res) => {
     try {
-        const { username, email, password, inviteCode } = req.body;
+        const { username, email, password, inviteCode, verificationCode } = req.body;
 
         if (!username || !email || !password) {
             return res.status(400).json({ error: '请填写所有必填字段' });
@@ -312,6 +440,21 @@ app.post('/api/auth/register', async (req, res) => {
 
         if (password.length < 6) {
             return res.status(400).json({ error: '密码至少需要6个字符' });
+        }
+
+        // 检查邮箱验证是否启用
+        const emailVerificationEnabled = await emailService.isEnabled();
+        if (emailVerificationEnabled) {
+            // 如果启用了邮箱验证，必须提供验证码
+            if (!verificationCode) {
+                return res.status(400).json({ error: '请输入邮箱验证码' });
+            }
+
+            // 验证验证码
+            const verifyResult = await emailService.verifyCode(email, verificationCode, 'register');
+            if (!verifyResult.valid) {
+                return res.status(400).json({ error: verifyResult.message });
+            }
         }
 
         // 使用Promise包装数据库操作
@@ -2385,6 +2528,163 @@ app.delete('/api/admin/users/:userId', adminMiddleware, async (req, res) => {
     }
 });
 
+// ========== 邮箱验证设置管理API（管理员） ==========
+
+// 获取邮箱验证设置
+app.get('/api/admin/email-settings', adminMiddleware, async (req, res) => {
+    try {
+        const settings = await new Promise((resolve, reject) => {
+            db.get('SELECT * FROM email_verification_settings WHERE id = ?', ['default'], (err, row) => {
+                if (err) reject(err);
+                else resolve(row);
+            });
+        });
+
+        if (!settings) {
+            return res.json({
+                enabled: 0,
+                smtp_host: '',
+                smtp_port: 587,
+                smtp_secure: 0,
+                smtp_user: '',
+                smtp_password: '',
+                from_email: '',
+                from_name: 'AI智能助手'
+            });
+        }
+
+        // 返回包含密码的完整设置（仅限管理员）
+        res.json(settings);
+    } catch (error) {
+        console.error('获取邮箱验证设置失败:', error);
+        res.status(500).json({ error: '获取邮箱验证设置失败' });
+    }
+});
+
+// 更新邮箱验证设置
+app.put('/api/admin/email-settings', adminMiddleware, async (req, res) => {
+    try {
+        const {
+            enabled,
+            smtp_host,
+            smtp_port,
+            smtp_secure,
+            smtp_user,
+            smtp_password,
+            from_email,
+            from_name
+        } = req.body;
+
+        // 获取当前设置以检查是否已有密码
+        const currentSettings = await new Promise((resolve, reject) => {
+            db.get('SELECT * FROM email_verification_settings WHERE id = ?', ['default'], (err, row) => {
+                if (err) reject(err);
+                else resolve(row);
+            });
+        });
+
+        // 验证必填字段
+        if (enabled === 1) {
+            const hasExistingPassword = currentSettings && currentSettings.smtp_password;
+            const hasNewPassword = smtp_password && smtp_password.trim() !== '';
+
+            if (!smtp_host || !smtp_user) {
+                return res.status(400).json({
+                    error: '启用邮箱验证时，SMTP主机和用户名为必填项'
+                });
+            }
+
+            // 只有在没有现有密码且没有提供新密码时才报错
+            if (!hasExistingPassword && !hasNewPassword) {
+                return res.status(400).json({
+                    error: '启用邮箱验证时，SMTP密码为必填项'
+                });
+            }
+        }
+
+        // 更新设置
+        await new Promise((resolve, reject) => {
+            const sql = `
+                UPDATE email_verification_settings
+                SET enabled = ?,
+                    smtp_host = ?,
+                    smtp_port = ?,
+                    smtp_secure = ?,
+                    smtp_user = ?,
+                    ${smtp_password ? 'smtp_password = ?,' : ''}
+                    from_email = ?,
+                    from_name = ?,
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE id = ?
+            `;
+
+            const params = smtp_password
+                ? [enabled, smtp_host, smtp_port, smtp_secure, smtp_user, smtp_password, from_email, from_name, 'default']
+                : [enabled, smtp_host, smtp_port, smtp_secure, smtp_user, from_email, from_name, 'default'];
+
+            db.run(sql, params, function(err) {
+                if (err) reject(err);
+                else resolve(this);
+            });
+        });
+
+        // 重新初始化邮件服务
+        if (enabled === 1) {
+            try {
+                await emailService.initializeTransporter();
+            } catch (error) {
+                console.error('初始化邮件服务失败:', error);
+                return res.status(400).json({
+                    error: 'SMTP配置验证失败，请检查配置是否正确',
+                    details: error.message
+                });
+            }
+        }
+
+        res.json({
+            success: true,
+            message: '邮箱验证设置更新成功'
+        });
+    } catch (error) {
+        console.error('更新邮箱验证设置失败:', error);
+        res.status(500).json({ error: '更新邮箱验证设置失败' });
+    }
+});
+
+// 测试SMTP配置
+app.post('/api/admin/email-settings/test', adminMiddleware, async (req, res) => {
+    try {
+        const { email } = req.body;
+
+        if (!email) {
+            return res.status(400).json({ error: '请提供测试邮箱地址' });
+        }
+
+        // 检查邮箱验证是否启用
+        const enabled = await emailService.isEnabled();
+        if (!enabled) {
+            return res.status(400).json({ error: '邮箱验证功能未启用' });
+        }
+
+        // 生成测试验证码
+        const testCode = '123456';
+
+        // 发送测试邮件
+        await emailService.sendVerificationCode(email, testCode, 'register');
+
+        res.json({
+            success: true,
+            message: '测试邮件已发送，请检查邮箱'
+        });
+    } catch (error) {
+        console.error('发送测试邮件失败:', error);
+        res.status(500).json({
+            error: '发送测试邮件失败',
+            details: error.message
+        });
+    }
+});
+
 // 辅助函数
 function getYesterday(dateStr) {
     const date = new Date(dateStr);
@@ -2413,7 +2713,10 @@ app.use((error, req, res, next) => {
 
 // 启动服务器
 app.listen(PORT, () => {
-    
+    console.log(`✅ 服务器已启动在端口 ${PORT}`);
+    console.log(`📧 邮箱验证服务已初始化`);
+    console.log(`🌐 访问地址: http://localhost:${PORT}`);
+    console.log(`🔧 管理后台: http://localhost:${PORT}/admin.html`);
 });
 
 module.exports = app;

@@ -1245,6 +1245,46 @@ body::before {
     box-shadow: 0 0 0 3px rgba(0, 82, 204, 0.1);
 }
 
+/* 验证码输入框样式 */
+.verification-code-wrapper {
+    display: flex;
+    gap: 10px;
+    align-items: stretch;
+}
+
+.verification-code-wrapper input {
+    flex: 1;
+}
+
+.send-code-btn {
+    padding: 16px 24px;
+    background: linear-gradient(135deg, #0052cc, #667eea);
+    color: #ffffff !important;
+    border: none;
+    border-radius: 12px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    white-space: nowrap;
+    min-width: 110px;
+}
+
+.send-code-btn:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(0, 82, 204, 0.3);
+}
+
+.send-code-btn:disabled {
+    background: linear-gradient(135deg, #ccc, #aaa);
+    cursor: not-allowed;
+    opacity: 0.6;
+}
+
+.send-code-btn.countdown {
+    background: linear-gradient(135deg, #666, #888);
+}
+
 .auth-btn {
     width: 100%;
     padding: 16px;

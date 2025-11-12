@@ -27,6 +27,7 @@
     "jsonwebtoken": "^9.0.2",
     "multer": "2.0.2",
     "node-fetch": "^2.6.7",
+    "nodemailer": "^7.0.10",
     "sqlite3": "^5.1.6",
     "uuid": "^9.0.0"
   },
