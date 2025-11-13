@@ -2572,8 +2572,14 @@ app.put('/api/admin/email-settings', adminMiddleware, async (req, res) => {
             smtp_user,
             smtp_password,
             from_email,
-            from_name
+            from_name,
+            email_subject,
+            email_template
         } = req.body;
+
+        console.log('📝 收到邮箱设置更新请求:');
+        console.log('  - email_subject:', email_subject);
+        console.log('  - email_template (前50字):', email_template?.substring(0, 50));
 
         // 获取当前设置以检查是否已有密码
         const currentSettings = await new Promise((resolve, reject) => {
@@ -2604,27 +2610,55 @@ app.put('/api/admin/email-settings', adminMiddleware, async (req, res) => {
 
         // 更新设置
         await new Promise((resolve, reject) => {
-            const sql = `
-                UPDATE email_verification_settings
-                SET enabled = ?,
-                    smtp_host = ?,
-                    smtp_port = ?,
-                    smtp_secure = ?,
-                    smtp_user = ?,
-                    ${smtp_password ? 'smtp_password = ?,' : ''}
-                    from_email = ?,
-                    from_name = ?,
-                    updated_at = CURRENT_TIMESTAMP
-                WHERE id = ?
-            `;
+            let sql, params;
 
-            const params = smtp_password
-                ? [enabled, smtp_host, smtp_port, smtp_secure, smtp_user, smtp_password, from_email, from_name, 'default']
-                : [enabled, smtp_host, smtp_port, smtp_secure, smtp_user, from_email, from_name, 'default'];
+            if (smtp_password && smtp_password.trim() !== '') {
+                // 如果提供了新密码,更新包括密码在内的所有字段
+                sql = `
+                    UPDATE email_verification_settings
+                    SET enabled = ?,
+                        smtp_host = ?,
+                        smtp_port = ?,
+                        smtp_secure = ?,
+                        smtp_user = ?,
+                        smtp_password = ?,
+                        from_email = ?,
+                        from_name = ?,
+                        email_subject = ?,
+                        email_template = ?,
+                        updated_at = CURRENT_TIMESTAMP
+                    WHERE id = ?
+                `;
+                params = [enabled, smtp_host, smtp_port, smtp_secure, smtp_user, smtp_password, from_email, from_name, email_subject, email_template, 'default'];
+            } else {
+                // 如果没有提供新密码,保持原有密码不变
+                sql = `
+                    UPDATE email_verification_settings
+                    SET enabled = ?,
+                        smtp_host = ?,
+                        smtp_port = ?,
+                        smtp_secure = ?,
+                        smtp_user = ?,
+                        from_email = ?,
+                        from_name = ?,
+                        email_subject = ?,
+                        email_template = ?,
+                        updated_at = CURRENT_TIMESTAMP
+                    WHERE id = ?
+                `;
+                params = [enabled, smtp_host, smtp_port, smtp_secure, smtp_user, from_email, from_name, email_subject, email_template, 'default'];
+            }
+
+            console.log('📊 执行SQL更新, 参数数量:', params.length);
 
             db.run(sql, params, function(err) {
-                if (err) reject(err);
-                else resolve(this);
+                if (err) {
+                    console.error('❌ SQL更新失败:', err);
+                    reject(err);
+                } else {
+                    console.log('✅ SQL更新成功, 影响行数:', this.changes);
+                    resolve(this);
+                }
             });
         });
 

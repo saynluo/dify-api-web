@@ -1244,6 +1244,8 @@ async function loadEmailSettings() {
         document.getElementById('fromEmail').value = settings.from_email || '';
         document.getElementById('fromName').value = settings.from_name || 'AI智能助手';
         document.getElementById('smtpSecure').checked = settings.smtp_secure === 1;
+        document.getElementById('emailSubject').value = settings.email_subject || '【AI智能助手】邮箱验证码';
+        document.getElementById('emailTemplate').value = settings.email_template || '您好！\n\n您的邮箱验证码是：{code}\n\n验证码将在5分钟后过期，请尽快完成验证。\n\n如果这不是您的操作，请忽略此邮件。\n\n祝您使用愉快！\nAI智能助手团队';
 
         // 如果已配置SMTP用户，说明已保存过密码，显示占位符
         const passwordInput = document.getElementById('smtpPassword');
@@ -1298,11 +1300,21 @@ async function saveEmailSettings() {
     const fromEmail = document.getElementById('fromEmail').value.trim();
     const fromName = document.getElementById('fromName').value.trim();
     const smtpSecure = document.getElementById('smtpSecure').checked ? 1 : 0;
+    const emailSubject = document.getElementById('emailSubject').value.trim();
+    const emailTemplate = document.getElementById('emailTemplate').value.trim();
 
     // 如果启用，验证必填字段
     if (enabled) {
         if (!smtpHost || !smtpUser) {
             showNotification('请填写SMTP服务器地址和用户名', 'error');
+            return;
+        }
+        if (!emailSubject || !emailTemplate) {
+            showNotification('请填写邮件主题和邮件模板', 'error');
+            return;
+        }
+        if (!emailTemplate.includes('{code}')) {
+            showNotification('邮件模板必须包含 {code} 占位符', 'error');
             return;
         }
     }
@@ -1315,7 +1327,9 @@ async function saveEmailSettings() {
             smtp_user: smtpUser,
             from_email: fromEmail || smtpUser,
             from_name: fromName || 'AI智能助手',
-            smtp_secure: smtpSecure
+            smtp_secure: smtpSecure,
+            email_subject: emailSubject || '【AI智能助手】邮箱验证码',
+            email_template: emailTemplate || '您好！\n\n您的邮箱验证码是：{code}\n\n验证码将在5分钟后过期，请尽快完成验证。\n\n如果这不是您的操作，请忽略此邮件。\n\n祝您使用愉快！\nAI智能助手团队'
         };
 
         // 只有填写了新密码才发送（不是占位符）

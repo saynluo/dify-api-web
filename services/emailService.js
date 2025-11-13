@@ -71,10 +71,23 @@ class EmailService {
 
             const settings = await this.loadSmtpConfig();
 
-            const subject = type === 'register' ? '注册验证码 - AI智能助手' : '密码重置验证码 - AI智能助手';
-            const content = type === 'register'
-                ? `您的注册验证码是：<strong>${code}</strong><br><br>验证码有效期为10分钟，请尽快使用。<br><br>如果这不是您的操作，请忽略此邮件。`
-                : `您的密码重置验证码是：<strong>${code}</strong><br><br>验证码有效期为10分钟，请尽快使用。<br><br>如果这不是您的操作，请立即修改密码以保护账户安全。`;
+            console.log('📧 发送验证码邮件 - 配置信息:');
+            console.log('  - 邮件主题:', settings.email_subject);
+            console.log('  - 模板预览:', settings.email_template?.substring(0, 50) + '...');
+            console.log('  - 发件人:', settings.from_name);
+
+            // 使用自定义的邮件主题和模板
+            const subject = settings.email_subject || '【AI智能助手】邮箱验证码';
+            const template = settings.email_template || '您好！\n\n您的邮箱验证码是：{code}\n\n验证码将在5分钟后过期，请尽快完成验证。\n\n如果这不是您的操作，请忽略此邮件。\n\n祝您使用愉快！\nAI智能助手团队';
+
+            console.log('  - 实际使用主题:', subject);
+            console.log('  - 实际使用模板:', template.substring(0, 50) + '...');
+
+            // 替换模板中的 {code} 占位符
+            const emailContent = template.replace(/{code}/g, code);
+
+            // 将换行符转换为 HTML 的 <br> 标签
+            const htmlContent = emailContent.replace(/\n/g, '<br>');
 
             const mailOptions = {
                 from: `"${settings.from_name || 'AI智能助手'}" <${settings.from_email || settings.smtp_user}>`,
@@ -83,16 +96,10 @@ class EmailService {
                 html: `
                     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f9f9f9;">
                         <div style="background-color: #ffffff; padding: 30px; border-radius: 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-                            <h2 style="color: #333; margin-top: 0;">${subject}</h2>
-                            <p style="color: #666; font-size: 16px; line-height: 1.6;">
-                                ${content}
+                            <p style="color: #333; font-size: 16px; line-height: 1.8; white-space: pre-wrap;">
+                                ${htmlContent}
                             </p>
-                            <div style="margin: 30px 0; padding: 20px; background-color: #f0f8ff; border-left: 4px solid #2196F3; border-radius: 5px;">
-                                <p style="margin: 0; font-size: 24px; color: #2196F3; font-weight: bold; letter-spacing: 3px; text-align: center;">
-                                    ${code}
-                                </p>
-                            </div>
-                            <p style="color: #999; font-size: 14px; margin-top: 20px;">
+                            <p style="color: #999; font-size: 14px; margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee;">
                                 此邮件由系统自动发送，请勿直接回复。
                             </p>
                         </div>
