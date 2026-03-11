@@ -1684,6 +1684,164 @@ app.post('/api/messages/:messageId/feedbacks', authMiddleware, async (req, res) 
     }
 });
 
+// ====== 新增：Dify API 补全 ======
+
+// 停止生成回答 (仅在使用streaming时有效)
+app.post('/api/chat-messages/:taskId/stop', authMiddleware, async (req, res) => {
+    try {
+        const { taskId } = req.params;
+        const userEmail = req.userEmail || req.userId;
+        
+        const result = await difyService.stopGeneration(taskId, userEmail);
+        res.json(result);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// 获取应用 Feedback 列表
+app.get('/api/app/feedbacks', authMiddleware, async (req, res) => {
+    try {
+        const { page = 1, limit = 20 } = req.query;
+        const result = await difyService.getAppFeedbacks(parseInt(page), parseInt(limit));
+        res.json(result);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// 获取建议问题
+app.get('/api/messages/:messageId/suggested', authMiddleware, async (req, res) => {
+    try {
+        const { messageId } = req.params;
+        const userEmail = req.userEmail || req.userId;
+
+        // 查询本地DB得到实际的 Dify messageId
+        const message = await new Promise((resolve, reject) => {
+            db.get('SELECT dify_message_id FROM messages WHERE id = ?', [messageId], (err, row) => {
+                if (err) reject(err);
+                else resolve(row);
+            });
+        });
+
+        const targetMessageId = (message && message.dify_message_id) ? message.dify_message_id : messageId;
+
+        const result = await difyService.getSuggestedQuestions(targetMessageId, userEmail);
+        res.json(result);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// 获取应用 Meta (工具图标等)
+app.get('/api/app/meta', async (req, res) => {
+    try {
+        const result = await difyService.getToolMeta();
+        res.json(result);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// 获取应用 WebApp Settings (站点信息)
+app.get('/api/app/site', async (req, res) => {
+    try {
+        const result = await difyService.getWebAppSettings();
+        res.json(result);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// 获取 EndUser 详情
+app.get('/api/end-users/:id', authMiddleware, async (req, res) => {
+    try {
+        const { id } = req.params;
+        const result = await difyService.getEndUser(id);
+        res.json(result);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// --- Annotations (标注) 路由 ---
+
+// 获取标注列表
+app.get('/api/apps/annotations', authMiddleware, async (req, res) => {
+    try {
+        const { page = 1, limit = 20 } = req.query;
+        const result = await difyService.getAnnotations(parseInt(page), parseInt(limit));
+        res.json(result);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// 创建标注
+app.post('/api/apps/annotations', authMiddleware, async (req, res) => {
+    try {
+        const { question, answer } = req.body;
+        if (!question || !answer) {
+            return res.status(400).json({ error: "question 和 answer 不能为空" });
+        }
+        const result = await difyService.createAnnotation(question, answer);
+        res.json(result);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// 更新标注
+app.put('/api/apps/annotations/:id', authMiddleware, async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { question, answer } = req.body;
+        const result = await difyService.updateAnnotation(id, question, answer);
+        res.json(result);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// 删除标注
+app.delete('/api/apps/annotations/:id', authMiddleware, async (req, res) => {
+    try {
+        const { id } = req.params;
+        const success = await difyService.deleteAnnotation(id);
+        res.json({ success });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// 设置标注回复状态 (enable / disable)
+app.post('/api/apps/annotation-reply/:action', authMiddleware, async (req, res) => {
+    try {
+        const { action } = req.params;
+        const { score_threshold, embedding_provider_name, embedding_model_name } = req.body;
+        
+        if (score_threshold === undefined) {
+             return res.status(400).json({ error: "score_threshold 不能为空" });
+        }
+
+        const result = await difyService.setAnnotationReply(action, score_threshold, embedding_provider_name, embedding_model_name);
+        res.json(result);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// 获取标注回复设置任务的状态
+app.get('/api/apps/annotation-reply/:action/status/:jobId', authMiddleware, async (req, res) => {
+    try {
+        const { action, jobId } = req.params;
+        const result = await difyService.getAnnotationReplyStatus(action, jobId);
+        res.json(result);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
 // 获取消息反馈
 app.get('/api/messages/:messageId/feedbacks', authMiddleware, async (req, res) => {
     try {

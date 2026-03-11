@@ -447,6 +447,70 @@ class DifyService {
         }
     }
     
+    // 获取应用 WebApp 设置 (Site)
+    async getWebAppSettings() {
+        try {
+            const response = await fetch(`${this.baseUrl}/site`, {
+                method: 'GET',
+                headers: this.getHeaders()
+            });
+            
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+            
+            return await response.json();
+        } catch (error) {
+            console.error('获取 WebApp 设置失败:', error);
+            throw error;
+        }
+    }
+    
+    // 获取应用反馈列表
+    async getAppFeedbacks(page = 1, limit = 20) {
+        try {
+            const params = new URLSearchParams({
+                page: page.toString(),
+                limit: limit.toString()
+            });
+            
+            const response = await fetch(`${this.baseUrl}/app/feedbacks?${params}`, {
+                method: 'GET',
+                headers: this.getHeaders()
+            });
+            
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(`HTTP ${response.status}: ${errorText}`);
+            }
+            
+            return await response.json();
+        } catch (error) {
+            console.error('获取应用反馈列表失败:', error);
+            throw error;
+        }
+    }
+
+    // 获取 EndUser 详情
+    async getEndUser(endUserId) {
+        try {
+            const response = await fetch(`${this.baseUrl}/end-users/${endUserId}`, {
+                method: 'GET',
+                headers: this.getHeaders()
+            });
+            
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(`HTTP ${response.status}: ${errorText}`);
+            }
+            
+            return await response.json();
+        } catch (error) {
+            console.error('获取 EndUser 详情失败:', error);
+            throw error;
+        }
+    }
+    
     // 获取历史消息
     async getMessages(conversationId, user, limit = 20) {
         try {
@@ -603,6 +667,148 @@ class DifyService {
             return await response.json();
         } catch (error) {
             console.error('提交Dify消息反馈失败:', error);
+            throw error;
+        }
+    }
+
+    // ---------------- Annotations 接口 ----------------
+    
+    // 获取标注列表
+    async getAnnotations(page = 1, limit = 20) {
+        try {
+            const params = new URLSearchParams({
+                page: page.toString(),
+                limit: limit.toString()
+            });
+            
+            const response = await fetch(`${this.baseUrl}/apps/annotations?${params}`, {
+                method: 'GET',
+                headers: this.getHeaders()
+            });
+            
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(`HTTP ${response.status}: ${errorText}`);
+            }
+            
+            return await response.json();
+        } catch (error) {
+            console.error('获取标注列表失败:', error);
+            throw error;
+        }
+    }
+
+    // 创建标注
+    async createAnnotation(question, answer) {
+        try {
+            const response = await fetch(`${this.baseUrl}/apps/annotations`, {
+                method: 'POST',
+                headers: this.getHeaders(),
+                body: JSON.stringify({ question, answer })
+            });
+            
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(`HTTP ${response.status}: ${errorText}`);
+            }
+            
+            return await response.json();
+        } catch (error) {
+            console.error('创建标注失败:', error);
+            throw error;
+        }
+    }
+
+    // 更新标注
+    async updateAnnotation(annotationId, question, answer) {
+        try {
+            const response = await fetch(`${this.baseUrl}/apps/annotations/${annotationId}`, {
+                method: 'PUT',
+                headers: this.getHeaders(),
+                body: JSON.stringify({ question, answer })
+            });
+            
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(`HTTP ${response.status}: ${errorText}`);
+            }
+            
+            return await response.json();
+        } catch (error) {
+            console.error('更新标注失败:', error);
+            throw error;
+        }
+    }
+
+    // 删除标注
+    async deleteAnnotation(annotationId) {
+        try {
+            const response = await fetch(`${this.baseUrl}/apps/annotations/${annotationId}`, {
+                method: 'DELETE',
+                headers: this.getHeaders()
+            });
+            
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(`HTTP ${response.status}: ${errorText}`);
+            }
+            
+            return response.status === 204;
+        } catch (error) {
+            console.error('删除标注失败:', error);
+            throw error;
+        }
+    }
+
+    // 初始化标注回复设置
+    async setAnnotationReply(action, scoreThreshold, embeddingProviderName = undefined, embeddingModelName = undefined) {
+        try {
+            if (action !== 'enable' && action !== 'disable') {
+                throw new Error("action 只能为 'enable' 或 'disable'");
+            }
+
+            const body = { score_threshold: scoreThreshold };
+            if (embeddingProviderName) body.embedding_provider_name = embeddingProviderName;
+            if (embeddingModelName) body.embedding_model_name = embeddingModelName;
+
+            const response = await fetch(`${this.baseUrl}/apps/annotation-reply/${action}`, {
+                method: 'POST',
+                headers: this.getHeaders(),
+                body: JSON.stringify(body)
+            });
+            
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(`HTTP ${response.status}: ${errorText}`);
+            }
+            
+            return await response.json();
+        } catch (error) {
+            console.error(`设置标注回复(${action})任务失败:`, error);
+            throw error;
+        }
+    }
+
+    // 查询标注回复初始化状态
+    async getAnnotationReplyStatus(action, jobId) {
+        try {
+            if (action !== 'enable' && action !== 'disable') {
+                throw new Error("action 只能为 'enable' 或 'disable'");
+            }
+            
+            const response = await fetch(`${this.baseUrl}/apps/annotation-reply/${action}/status/${jobId}`, {
+                method: 'GET',
+                headers: this.getHeaders()
+            });
+            
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(`HTTP ${response.status}: ${errorText}`);
+            }
+            
+            return await response.json();
+        } catch (error) {
+            console.error('查询标注回复任务状态失败:', error);
             throw error;
         }
     }
